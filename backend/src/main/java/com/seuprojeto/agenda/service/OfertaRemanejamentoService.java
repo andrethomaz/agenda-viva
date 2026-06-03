@@ -4,6 +4,7 @@ import com.seuprojeto.agenda.exception.BusinessException;
 import com.seuprojeto.agenda.exception.ResourceNotFoundException;
 import com.seuprojeto.agenda.model.*;
 import com.seuprojeto.agenda.repository.AgendamentoRepository;
+import com.seuprojeto.agenda.repository.ClienteRepository;
 import com.seuprojeto.agenda.repository.OfertaRemanejamentoRepository;
 import com.seuprojeto.agenda.repository.WhatsAppCanalRepository;
 import org.springframework.stereotype.Service;
@@ -21,17 +22,20 @@ public class OfertaRemanejamentoService {
 
     private final OfertaRemanejamentoRepository ofertaRepository;
     private final AgendamentoRepository agendamentoRepository;
+    private final ClienteRepository clienteRepository;
     private final WhatsAppCanalRepository canalRepository;
     private final WhatsAppMessageService messageService;
     private final AuditoriaService auditoriaService;
 
     public OfertaRemanejamentoService(OfertaRemanejamentoRepository ofertaRepository,
                                      AgendamentoRepository agendamentoRepository,
+                                     ClienteRepository clienteRepository,
                                      WhatsAppCanalRepository canalRepository,
                                      WhatsAppMessageService messageService,
                                      AuditoriaService auditoriaService) {
         this.ofertaRepository = ofertaRepository;
         this.agendamentoRepository = agendamentoRepository;
+        this.clienteRepository = clienteRepository;
         this.canalRepository = canalRepository;
         this.messageService = messageService;
         this.auditoriaService = auditoriaService;
@@ -80,8 +84,9 @@ public class OfertaRemanejamentoService {
         ofertaRepository.save(oferta);
 
         canalRepository.findByEstabelecimentoId(cancelado.getEstabelecimentoId()).ifPresent(canal ->
-                messageService.enviarTexto(canal, candidato.getClienteId(), candidato.getClienteId(),
-                        "Agenda Viva: surgiu um horário melhor. Responda 1 para aceitar ou 2 para recusar.", "ENVIADA"));
+                clienteRepository.findById(candidato.getClienteId()).ifPresent(cliente ->
+                        messageService.enviarTexto(canal, candidato.getClienteId(), cliente.getWhatsapp(),
+                                "Agenda Viva: surgiu um horário melhor. Responda 1 para aceitar ou 2 para recusar.", "ENVIADA")));
 
         auditoriaService.registrar(cancelado.getEstabelecimentoId(), "OFERTA_ENVIADA", "OfertaRemanejamento", oferta.getId(), "Oferta de remanejamento enviada");
     }

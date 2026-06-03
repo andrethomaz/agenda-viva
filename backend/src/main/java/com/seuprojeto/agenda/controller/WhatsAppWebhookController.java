@@ -1,7 +1,9 @@
 package com.seuprojeto.agenda.controller;
 
 import com.seuprojeto.agenda.service.WhatsAppWebhookService;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,10 +23,12 @@ public class WhatsAppWebhookController {
     public ResponseEntity<String> verify(@RequestParam("hub.mode") String mode,
                                          @RequestParam("hub.verify_token") String verifyToken,
                                          @RequestParam("hub.challenge") String challenge) {
-        if (!"subscribe".equals(mode) || !service.validarVerifyToken(verifyToken)) {
+        if (!"subscribe".equals(mode) || !service.validarVerifyToken(verifyToken) || !challenge.matches("^[a-zA-Z0-9._-]{1,200}$")) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        return ResponseEntity.ok(challenge);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_PLAIN_VALUE)
+                .body(challenge);
     }
 
     @PostMapping
