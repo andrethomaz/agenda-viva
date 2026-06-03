@@ -9,6 +9,7 @@ type Props = {
   title: string;
   endpoint: string;
   estabelecimentoField?: boolean;
+  additionalFields?: Record<string, unknown>;
 };
 
 const schema = z.object({
@@ -18,7 +19,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export function SimpleCrudPage({ title, endpoint, estabelecimentoField = true }: Props) {
+export function SimpleCrudPage({ title, endpoint, estabelecimentoField = true, additionalFields }: Props) {
   const queryClient = useQueryClient();
   const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { estabelecimentoId: 'default', nome: '' } });
   const estabelecimentoId = form.watch('estabelecimentoId') || 'default';
@@ -36,8 +37,7 @@ export function SimpleCrudPage({ title, endpoint, estabelecimentoField = true }:
       await http.post(endpoint, {
         ...payload,
         estabelecimentoId: estabelecimentoField ? payload.estabelecimentoId : undefined,
-        tipoServico: 'geral',
-        tempoExecucaoMinutos: 30,
+        ...(additionalFields ?? {}),
       });
     },
     onSuccess: () => {

@@ -23,7 +23,7 @@ public class WhatsAppWebhookController {
     public ResponseEntity<String> verify(@RequestParam("hub.mode") String mode,
                                          @RequestParam("hub.verify_token") String verifyToken,
                                          @RequestParam("hub.challenge") String challenge) {
-        if (!"subscribe".equals(mode) || !service.validarVerifyToken(verifyToken) || !challenge.matches("^[a-zA-Z0-9._-]{1,200}$")) {
+        if (!"subscribe".equals(mode) || !service.validarVerifyToken(verifyToken) || !challenge.matches("^\\d{1,20}$")) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok()
