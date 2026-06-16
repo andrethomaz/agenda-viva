@@ -1,1 +1,9 @@
 node_modules/
+dist/
+frontend/dist/
+frontend/node_modules/
+backend/target/
+*.log
+.DS_Store
+.idea/
+.vscode/
