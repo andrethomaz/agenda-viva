@@ -12,7 +12,7 @@ Monorepo SaaS multiestabelecimento de agendamentos com módulo de remanejamento 
 
 ## Requisitos
 
-- Java 17+ (projeto preparado para Java 21 em produção)
+- Java 25+
 - Maven 3.9+
 - Node 20+
 - npm 10+
