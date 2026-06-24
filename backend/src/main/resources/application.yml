@@ -10,3 +10,5 @@ server:
 agenda-viva:
   scheduler:
     ofertas-expiradas-ms: ${OFERTAS_EXPIRADAS_MS:60000}
+  openapi:
+    production-server-url: https://agenda-viva-api-production.up.railway.app

@@ -15,7 +15,11 @@ class OpenApiConfigTest {
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("RAILWAY_PUBLIC_DOMAIN", "agenda-viva-api-production.up.railway.app");
 
-        OpenAPI openAPI = openApiConfig.agendaVivaOpenApi(environment, "8080");
+        OpenAPI openAPI = openApiConfig.agendaVivaOpenApi(
+                environment,
+                "8080",
+                "https://agenda-viva-api-production.up.railway.app"
+        );
 
         assertEquals("Agenda Viva API", openAPI.getInfo().getTitle());
         assertEquals("v1", openAPI.getInfo().getVersion());
@@ -24,7 +28,11 @@ class OpenApiConfigTest {
 
     @Test
     void shouldKeepLocalhostServerOutsideProduction() {
-        OpenAPI openAPI = openApiConfig.agendaVivaOpenApi(new MockEnvironment(), "8080");
+        OpenAPI openAPI = openApiConfig.agendaVivaOpenApi(
+                new MockEnvironment(),
+                "8080",
+                "https://agenda-viva-api-production.up.railway.app"
+        );
 
         assertEquals("http://localhost:8080", openAPI.getServers().getFirst().getUrl());
     }

@@ -14,13 +14,12 @@ import java.util.List;
 @Configuration
 public class OpenApiConfig {
 
-    private static final String PRODUCTION_SERVER_URL = "https://agenda-viva-api-production.up.railway.app";
-
     @Bean
     public OpenAPI agendaVivaOpenApi(Environment environment,
-                                     @Value("${server.port:8080}") String serverPort) {
+                                     @Value("${server.port:8080}") String serverPort,
+                                     @Value("${agenda-viva.openapi.production-server-url}") String productionServerUrl) {
         boolean productionEnvironment = isProductionEnvironment(environment);
-        String serverUrl = productionEnvironment ? PRODUCTION_SERVER_URL : "http://localhost:" + serverPort;
+        String serverUrl = productionEnvironment ? productionServerUrl : "http://localhost:" + serverPort;
 
         return new OpenAPI().info(new Info()
                 .title("Agenda Viva API")
@@ -33,9 +32,6 @@ public class OpenApiConfig {
 
     private boolean isProductionEnvironment(Environment environment) {
         return environment.acceptsProfiles(Profiles.of("prod", "production"))
-                || environment.containsProperty("RAILWAY_ENVIRONMENT")
-                || environment.containsProperty("RAILWAY_ENVIRONMENT_NAME")
-                || environment.containsProperty("RAILWAY_PROJECT_ID")
                 || environment.containsProperty("RAILWAY_PUBLIC_DOMAIN");
     }
 }
