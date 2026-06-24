@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import org.springframework.core.env.Profiles;
 
 import java.util.List;
 
@@ -31,7 +30,7 @@ public class OpenApiConfig {
     }
 
     private boolean isProductionEnvironment(Environment environment) {
-        return environment.acceptsProfiles(Profiles.of("prod", "production"))
+        return environment.matchesProfiles("prod")
                 || environment.containsProperty("RAILWAY_PUBLIC_DOMAIN");
     }
 }
