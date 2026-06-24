@@ -5,7 +5,10 @@ spring:
 
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: framework
 
 agenda-viva:
   scheduler:
     ofertas-expiradas-ms: ${OFERTAS_EXPIRADAS_MS:60000}
+  openapi:
+    production-server-url: ${PRODUCTION_SERVER_URL:https://agenda-viva-api-production.up.railway.app}
