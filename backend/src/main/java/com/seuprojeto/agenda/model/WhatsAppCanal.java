@@ -14,10 +14,9 @@ public class WhatsAppCanal {
     private String id;
     private String estabelecimentoId;
     @Indexed(unique = true)
-    private String phoneNumberId;
-    private String numeroWhatsapp;
-    private String accessToken;
-    private String verifyToken;
-    private String wabaId;
+    private String fromNumber;
+    private String accountSid;
+    private String authToken;
+    private String authSigningKey;
     private boolean ativo = true;
 }

@@ -6,7 +6,7 @@ Monorepo SaaS multiestabelecimento de agendamentos com módulo de remanejamento 
 
 ```text
 /agenda-viva
-  /backend   -> Spring Boot + MongoDB + WhatsApp Cloud API
+  /backend   -> Spring Boot + MongoDB + WhatsApp via Twilio
   /frontend  -> React + Vite + TypeScript
 ```
 
@@ -25,7 +25,7 @@ Monorepo SaaS multiestabelecimento de agendamentos com módulo de remanejamento 
 3. CRUDs principais (estabelecimentos, clientes, profissionais, serviços, agendamentos)
 4. Regras de disponibilidade e cálculo de `dataHoraFim`
 5. Auditoria de eventos principais
-6. Integração WhatsApp (webhook GET/POST + Graph API via WebClient)
+6. Integração WhatsApp (webhook POST + Twilio API via WebClient)
 7. Agenda Viva (ofertas, aceite/recusa, remanejamento em cadeia)
 8. Scheduler de ofertas expiradas
 9. Frontend base com layout administrativo, rotas, Axios, React Query e formulários
@@ -54,16 +54,17 @@ npm run dev
 
 App: `http://localhost:5173`
 
-## Configuração WhatsApp Cloud API
+## Configuração WhatsApp via Twilio
 
-1. Configure o webhook da Meta para `GET/POST /api/webhooks/whatsapp`.
+1. Configure o webhook do Twilio para `POST /api/webhooks/whatsapp`.
 2. Salve o canal do estabelecimento em `PUT /api/whatsapp-canais` com:
    - `estabelecimentoId`
-   - `phoneNumberId`
-   - `accessToken`
-   - `verifyToken`
-3. O backend identifica o estabelecimento pelo `phoneNumberId` do payload recebido.
-4. Respostas ao cliente são enviadas via Graph API usando o canal daquele estabelecimento.
+   - `fromNumber` (ex: `whatsapp:+5511999999999`)
+   - `accountSid`
+   - `authToken`
+   - `authSigningKey`
+3. O backend identifica o estabelecimento pelo `To` recebido no webhook.
+4. Respostas ao cliente são enviadas via Twilio API usando o canal daquele estabelecimento.
 
 ## Endpoints mínimos disponíveis
 
@@ -74,4 +75,4 @@ App: `http://localhost:5173`
 - `POST/GET/GET{id}/PUT{id}/DELETE{id}/POST{id}/cancelar /api/agendamentos`
 - `GET /api/ofertas-remanejamento`
 - `GET /api/ofertas-remanejamento/{id}`
-- `GET/POST /api/webhooks/whatsapp`
+- `POST /api/webhooks/whatsapp`

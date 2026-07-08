@@ -8,13 +8,12 @@ public class WhatsAppCanalRequest {
     @NotBlank
     private String estabelecimentoId;
     @NotBlank
-    private String phoneNumberId;
+    private String fromNumber;
     @NotBlank
-    private String numeroWhatsapp;
+    private String accountSid;
     @NotBlank
-    private String accessToken;
+    private String authToken;
     @NotBlank
-    private String verifyToken;
-    private String wabaId;
+    private String authSigningKey;
     private boolean ativo = true;
 }

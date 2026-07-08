@@ -2,7 +2,7 @@ package com.seuprojeto.agenda.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.seuprojeto.agenda.integration.whatsapp.MetaWhatsAppClient;
+import com.seuprojeto.agenda.integration.whatsapp.TwilioWhatsAppClient;
 import com.seuprojeto.agenda.model.DirecaoMensagem;
 import com.seuprojeto.agenda.model.MensagemWhatsAppLog;
 import com.seuprojeto.agenda.model.WhatsAppCanal;
@@ -14,18 +14,18 @@ import java.util.Map;
 @Service
 public class WhatsAppMessageService {
 
-    private final MetaWhatsAppClient metaWhatsAppClient;
+    private final TwilioWhatsAppClient twilioWhatsAppClient;
     private final MensagemWhatsAppLogRepository logRepository;
     private final ObjectMapper objectMapper;
 
-    public WhatsAppMessageService(MetaWhatsAppClient metaWhatsAppClient, MensagemWhatsAppLogRepository logRepository, ObjectMapper objectMapper) {
-        this.metaWhatsAppClient = metaWhatsAppClient;
+    public WhatsAppMessageService(TwilioWhatsAppClient twilioWhatsAppClient, MensagemWhatsAppLogRepository logRepository, ObjectMapper objectMapper) {
+        this.twilioWhatsAppClient = twilioWhatsAppClient;
         this.logRepository = logRepository;
         this.objectMapper = objectMapper;
     }
 
     public void enviarTexto(WhatsAppCanal canal, String clienteId, String destino, String texto, String status) {
-        metaWhatsAppClient.enviarTexto(canal, destino, texto);
+        twilioWhatsAppClient.enviarTexto(canal, destino, texto);
         salvarLog(canal.getEstabelecimentoId(), clienteId, canal.getId(), DirecaoMensagem.ENVIADA, null, texto, Map.of("to", destino), status);
     }
 
