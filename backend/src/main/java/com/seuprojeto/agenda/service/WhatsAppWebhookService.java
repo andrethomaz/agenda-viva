@@ -15,6 +15,8 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.TreeMap;
 
 @Service
@@ -60,7 +62,7 @@ public class WhatsAppWebhookService {
         String texto = WhatsAppWebhookParser.extractText(payload).orElse("").trim();
         String messageId = WhatsAppWebhookParser.extractMessageId(payload).orElse(null);
 
-        messageService.registrarRecebida(canal.getEstabelecimentoId(), cliente.getId(), canal.getId(), messageId, texto, payload.toSingleValueMap());
+        messageService.registrarRecebida(canal.getEstabelecimentoId(), cliente.getId(), canal.getId(), messageId, texto, new HashMap<String, Object>(payload.toSingleValueMap()));
         auditoriaService.registrar(canal.getEstabelecimentoId(), "MENSAGEM_RECEBIDA", "MensagemWhatsApp", messageId, "Mensagem recebida pelo webhook");
 
         if ("1".equals(texto) || "2".equals(texto)) {
