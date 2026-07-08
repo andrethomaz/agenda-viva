@@ -5,10 +5,10 @@ import { http } from '../../services/http';
 
 type FormData = {
   estabelecimentoId: string;
-  phoneNumberId: string;
-  numeroWhatsapp: string;
-  accessToken: string;
-  verifyToken: string;
+  fromNumber: string;
+  accountSid: string;
+  authToken: string;
+  authSigningKey: string;
 };
 
 export function WhatsAppConfigPage() {
@@ -24,10 +24,10 @@ export function WhatsAppConfigPage() {
       <Paper sx={{ p: 2 }}>
         <Stack component="form" spacing={2} onSubmit={handleSubmit((values) => mutation.mutate(values))}>
           <TextField label="Estabelecimento ID" {...register('estabelecimentoId')} />
-          <TextField label="Phone Number ID" {...register('phoneNumberId')} />
-          <TextField label="Número WhatsApp" {...register('numeroWhatsapp')} />
-          <TextField label="Access Token" {...register('accessToken')} />
-          <TextField label="Verify Token" {...register('verifyToken')} />
+          <TextField label="From Number (whatsapp:+5511999999999)" {...register('fromNumber')} />
+          <TextField label="Account SID" {...register('accountSid')} />
+          <TextField label="Auth Token" {...register('authToken')} />
+          <TextField label="Auth Signing Key" {...register('authSigningKey')} />
           <Button type="submit" variant="contained">Salvar Canal</Button>
           {mutation.error && <Alert severity="error">Erro ao salvar canal</Alert>}
           {mutation.isSuccess && <Alert severity="success">Canal salvo</Alert>}
