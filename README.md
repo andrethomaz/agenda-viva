@@ -76,3 +76,54 @@ App: `http://localhost:5173`
 - `GET /api/ofertas-remanejamento`
 - `GET /api/ofertas-remanejamento/{id}`
 - `POST /api/webhooks/whatsapp`
+
+**Resumindo em palavras**
+
+Twilio é o intermediário: o número WhatsApp do seu cliente está registrado no Twilio. Quando alguém manda uma mensagem para esse número, o Twilio recebe e faz um POST para a URL do seu sistema.
+
+Seu sistema recebe o POST: o endpoint /api/webhooks/whatsapp recebe o payload com todos os dados da mensagem.
+
+Validação de segurança: o sistema verifica se o POST realmente veio do Twilio usando a assinatura X-Twilio-Signature (HMAC-SHA1 com a chave de signing do canal).
+
+Identificação do estabelecimento: pelo número de destino (To), o sistema descobre qual estabelecimento (cliente seu) recebeu a mensagem.
+
+Identificação/cadastro do remetente: pelo número de origem (From), o sistema busca ou cadastra automaticamente o cliente do seu cliente.
+
+Processamento: a mensagem é registrada e, se for uma resposta "1" ou "2", o sistema processa automaticamente uma oferta de remanejamento.
+
+Pré-requisito de configuração: no painel da Twilio, o número WhatsApp do seu cliente precisa ter a URL do seu sistema (https://seu-dominio/api/webhooks/whatsapp) configurada como webhook de mensagens recebidas.
+
+O fluxo funciona assim:
+
+**Fluxo de uma mensagem WhatsApp chegando ao seu sistema**
+
+Cliente do seu cliente
+        │
+        │  envia mensagem WhatsApp
+        ▼
+   Número WhatsApp do seu cliente
+   (configurado via Twilio Sandbox/Number)
+        │
+        │  Twilio intercepta a mensagem
+        ▼
+   Twilio faz um POST HTTP para:
+   POST /api/webhooks/whatsapp
+   (URL configurada no painel da Twilio como "webhook URL")
+        │
+        │  payload form-urlencoded + header X-Twilio-Signature
+        ▼
+   WhatsAppWebhookController
+        │
+        │  1. Valida assinatura HMAC-SHA1 (X-Twilio-Signature)
+        │     → Se inválida: retorna 403 FORBIDDEN
+        ▼
+   WhatsAppWebhookService.processar()
+        │
+        │  2. Extrai o número de destino (To) → identifica qual canal/estabelecimento
+        │  3. Extrai o número de origem (From) → quem enviou a mensagem
+        │  4. Busca ou cadastra o cliente automaticamente no banco
+        │  5. Registra a mensagem recebida (WhatsAppMessageService)
+        │  6. Registra auditoria
+        │  7. Se o texto for "1" ou "2" → processa resposta de oferta de remanejamento
+        ▼
+   Retorna "EVENT_RECEIVED" para o Twilio
