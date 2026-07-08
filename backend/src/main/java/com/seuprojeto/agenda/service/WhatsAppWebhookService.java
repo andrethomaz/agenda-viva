@@ -5,6 +5,8 @@ import com.seuprojeto.agenda.model.WhatsAppCanal;
 import com.seuprojeto.agenda.repository.WhatsAppCanalRepository;
 import com.seuprojeto.agenda.util.PhoneUtil;
 import com.seuprojeto.agenda.util.WhatsAppWebhookParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.MultiValueMap;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,8 @@ import java.util.TreeMap;
 
 @Service
 public class WhatsAppWebhookService {
+
+    private static final Logger log = LoggerFactory.getLogger(WhatsAppWebhookService.class);
 
     private final WhatsAppCanalService canalService;
     private final ClienteService clienteService;
@@ -80,29 +84,38 @@ public class WhatsAppWebhookService {
         if (canal == null) {
             return false;
         }
-        String calculada = gerarAssinaturaTwilio(requestUrl, payload, canal.getAuthSigningKey());
-        return MessageDigest.isEqual(calculada.getBytes(StandardCharsets.UTF_8), signature.getBytes(StandardCharsets.UTF_8));
+        byte[] calculada = gerarAssinaturaTwilio(requestUrl, payload, canal.getAuthSigningKey());
+        if (calculada.length == 0) {
+            return false;
+        }
+        try {
+            byte[] recebida = Base64.getDecoder().decode(signature);
+            return MessageDigest.isEqual(calculada, recebida);
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
-    private String gerarAssinaturaTwilio(String requestUrl, MultiValueMap<String, String> payload, String authSigningKey) {
+    private byte[] gerarAssinaturaTwilio(String requestUrl, MultiValueMap<String, String> payload, String authSigningKey) {
         try {
-            StringBuilder assinaturaBase = new StringBuilder(requestUrl);
-            TreeMap<String, java.util.List<String>> ordenado = new TreeMap<>(payload);
-            ordenado.forEach((key, values) -> {
+            StringBuilder signatureBase = new StringBuilder(requestUrl);
+            TreeMap<String, java.util.List<String>> sortedParams = new TreeMap<>(payload);
+            sortedParams.forEach((key, values) -> {
                 if (values == null || values.isEmpty()) {
-                    assinaturaBase.append(key);
+                    signatureBase.append(key);
                     return;
                 }
                 for (String value : values) {
-                    assinaturaBase.append(key).append(value == null ? "" : value);
+                    signatureBase.append(key).append(value == null ? "" : value);
                 }
             });
 
             Mac mac = Mac.getInstance("HmacSHA1");
             mac.init(new SecretKeySpec(authSigningKey.getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
-            return Base64.getEncoder().encodeToString(mac.doFinal(assinaturaBase.toString().getBytes(StandardCharsets.UTF_8)));
+            return mac.doFinal(signatureBase.toString().getBytes(StandardCharsets.UTF_8));
         } catch (Exception ex) {
-            return "";
+            log.warn("Falha ao gerar assinatura Twilio", ex);
+            return new byte[0];
         }
     }
 

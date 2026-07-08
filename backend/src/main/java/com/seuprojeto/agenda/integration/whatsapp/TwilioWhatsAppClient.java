@@ -2,6 +2,7 @@ package com.seuprojeto.agenda.integration.whatsapp;
 
 import com.seuprojeto.agenda.exception.IntegrationException;
 import com.seuprojeto.agenda.model.WhatsAppCanal;
+import com.seuprojeto.agenda.util.PhoneUtil;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
@@ -19,8 +20,9 @@ public class TwilioWhatsAppClient {
 
     public void enviarTexto(WhatsAppCanal canal, String destino, String texto) {
         String url = "https://api.twilio.com/2010-04-01/Accounts/" + canal.getAccountSid() + "/Messages.json";
+        String to = normalizeDestino(destino);
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-        body.add("To", "whatsapp:+" + destino);
+        body.add("To", to);
         body.add("From", canal.getFromNumber());
         body.add("Body", texto);
 
@@ -36,5 +38,19 @@ public class TwilioWhatsAppClient {
         } catch (Exception ex) {
             throw new IntegrationException("Falha ao enviar mensagem para Twilio API");
         }
+    }
+
+    private String normalizeDestino(String destino) {
+        if (destino == null) {
+            throw new IntegrationException("Número de destino inválido");
+        }
+        if (destino.startsWith("whatsapp:")) {
+            return destino;
+        }
+        String normalized = PhoneUtil.normalize(destino);
+        if (normalized == null || normalized.isBlank()) {
+            throw new IntegrationException("Número de destino inválido");
+        }
+        return "whatsapp:+" + normalized;
     }
 }
