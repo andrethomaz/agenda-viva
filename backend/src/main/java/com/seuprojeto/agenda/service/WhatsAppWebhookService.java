@@ -98,7 +98,7 @@ public class WhatsAppWebhookService {
         }
         try {
             byte[] recebida = Base64.getDecoder().decode(signature);
-            log.info("MessageDigest.isEqual(calculada, recebida) = {}", MessageDigest.isEqual(calculada, recebida));
+            log.info("calculada = {} | recebida = {} | MessageDigest.isEqual(calculada, recebida) = {}", calculada, recebida, MessageDigest.isEqual(calculada, recebida));
             return MessageDigest.isEqual(calculada, recebida);
         } catch (IllegalArgumentException ex) {
             return false;
