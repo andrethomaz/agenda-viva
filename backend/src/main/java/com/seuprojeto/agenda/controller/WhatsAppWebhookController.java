@@ -27,8 +27,10 @@ public class WhatsAppWebhookController {
         String requestUrl = request.getRequestURL().toString();
         log.info(">>> WhatsAppWebhookController.receive() - requestUrl: {}, payload: {}, signature: {}", requestUrl, payload, signature);
         if (!service.validarAssinaturaTwilio(requestUrl, payload, signature)) {
+            log.info(">>> WhatsAppWebhookController.receive() - requestUrl: {}, payload: {}, signature: {}, - falha ao validar Assinatura Twilio", requestUrl, payload, signature);
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+        log.info(">>> WhatsAppWebhookController.receive() - requestUrl: {}, payload: {}, signature: {}, - sucesso ao validar Assinatura Twilio - seguindo para processamento", requestUrl, payload, signature);
         service.processar(payload);
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_PLAIN)
