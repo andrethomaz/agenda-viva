@@ -78,22 +78,27 @@ public class WhatsAppWebhookService {
 
     public boolean validarAssinaturaTwilio(String requestUrl, MultiValueMap<String, String> payload, String signature) {
         if (signature == null || signature.isBlank()) {
+            log.info("signature == null || signature.isBlank()");
             return false;
         }
-        String fromNumber = normalizeFromNumber(WhatsAppWebhookParser.extractTo(payload).orElse(null));
-        if (fromNumber == null) {
+        String ecNumber = normalizeFromNumber(WhatsAppWebhookParser.extractTo(payload).orElse(null));
+        log.info("ecNumber {}", ecNumber);
+        if (ecNumber == null) {
             return false;
         }
-        WhatsAppCanal canal = canalRepository.findByFromNumber(fromNumber).orElse(null);
+        WhatsAppCanal canal = canalRepository.findByFromNumber(ecNumber).orElse(null);
+        log.info("canal {}", canal);
         if (canal == null) {
             return false;
         }
         byte[] calculada = gerarAssinaturaTwilio(requestUrl, payload, canal.getAuthSigningKey());
         if (calculada.length == 0) {
+            log.info("calculada.length == 0");
             return false;
         }
         try {
             byte[] recebida = Base64.getDecoder().decode(signature);
+            log.info("MessageDigest.isEqual(calculada, recebida) = {}", MessageDigest.isEqual(calculada, recebida));
             return MessageDigest.isEqual(calculada, recebida);
         } catch (IllegalArgumentException ex) {
             return false;
