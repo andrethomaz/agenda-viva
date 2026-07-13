@@ -1,6 +1,7 @@
 package com.seuprojeto.agenda.controller;
 
 import com.seuprojeto.agenda.service.WhatsAppWebhookService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -8,7 +9,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
-
+@Slf4j
 @RestController
 @RequestMapping("/api/webhooks/whatsapp")
 public class WhatsAppWebhookController {
@@ -24,6 +25,7 @@ public class WhatsAppWebhookController {
                                           @RequestParam MultiValueMap<String, String> payload,
                                           HttpServletRequest request) {
         String requestUrl = request.getRequestURL().toString();
+        log.info(">>> WhatsAppWebhookController.receive() - requestUrl: {}, payload: {}, signature: {}", requestUrl, payload, signature);
         if (!service.validarAssinaturaTwilio(requestUrl, payload, signature)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }

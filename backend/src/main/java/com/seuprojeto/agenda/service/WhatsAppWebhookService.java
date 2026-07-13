@@ -5,8 +5,7 @@ import com.seuprojeto.agenda.model.WhatsAppCanal;
 import com.seuprojeto.agenda.repository.WhatsAppCanalRepository;
 import com.seuprojeto.agenda.util.PhoneUtil;
 import com.seuprojeto.agenda.util.WhatsAppWebhookParser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.MultiValueMap;
 import org.springframework.stereotype.Service;
 
@@ -16,13 +15,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.TreeMap;
 
+@Slf4j
 @Service
 public class WhatsAppWebhookService {
-
-    private static final Logger log = LoggerFactory.getLogger(WhatsAppWebhookService.class);
 
     private final WhatsAppCanalService canalService;
     private final ClienteService clienteService;
@@ -46,19 +43,24 @@ public class WhatsAppWebhookService {
     }
 
     public void processar(MultiValueMap<String, String> payload) {
-        String fromNumber = normalizeFromNumber(WhatsAppWebhookParser.extractTo(payload).orElse(null));
-        if (fromNumber == null) {
+        log.info(">>> WhatsAppWebhookService.processar() - payload: {}", payload);
+        String ecNumber = normalizeFromNumber(WhatsAppWebhookParser.extractTo(payload).orElse(null));
+        if (ecNumber == null) {
             return;
         }
 
-        WhatsAppCanal canal = canalService.findByFromNumber(fromNumber);
+        log.info(">>> WhatsAppWebhookService.processar() - buscando canal para numero ec: {}", ecNumber);
+        WhatsAppCanal canal = canalService.findByFromNumber(ecNumber);
+        log.info(">>> WhatsAppWebhookService.processar() - canal retornado: {}", canal);
         String whatsappOrigem = PhoneUtil.normalize(WhatsAppWebhookParser.extractFrom(payload).orElse(null));
         if (whatsappOrigem == null) {
             return;
         }
 
         String nome = WhatsAppWebhookParser.extractProfileName(payload).orElse("Cliente WhatsApp");
+        log.info(">>> WhatsAppWebhookService.processar() - buscando cliente do cliente (cliente final) - numero: {}", whatsappOrigem);
         Cliente cliente = clienteService.buscarOuCadastrarViaWhatsapp(canal.getEstabelecimentoId(), whatsappOrigem, nome);
+        log.info(">>> WhatsAppWebhookService.processar() - cliente final retornado: {}", cliente);
         String texto = WhatsAppWebhookParser.extractText(payload).orElse("").trim();
         String messageId = WhatsAppWebhookParser.extractMessageId(payload).orElse(null);
 
@@ -116,7 +118,7 @@ public class WhatsAppWebhookService {
             mac.init(new SecretKeySpec(authSigningKey.getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
             return mac.doFinal(signatureBase.toString().getBytes(StandardCharsets.UTF_8));
         } catch (Exception ex) {
-            log.warn("Falha ao gerar assinatura Twilio", ex);
+            log.info("Falha ao gerar assinatura Twilio", ex);
             return new byte[0];
         }
     }
