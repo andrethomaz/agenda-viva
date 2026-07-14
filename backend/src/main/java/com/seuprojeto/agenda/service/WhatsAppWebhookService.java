@@ -5,17 +5,13 @@ import com.seuprojeto.agenda.model.WhatsAppCanal;
 import com.seuprojeto.agenda.repository.WhatsAppCanalRepository;
 import com.seuprojeto.agenda.util.PhoneUtil;
 import com.seuprojeto.agenda.util.WhatsAppWebhookParser;
+import com.twilio.security.RequestValidator;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.MultiValueMap;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MultiValueMap;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.Base64;
 import java.util.HashMap;
-import java.util.TreeMap;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -78,54 +74,26 @@ public class WhatsAppWebhookService {
 
     public boolean validarAssinaturaTwilio(String requestUrl, MultiValueMap<String, String> payload, String signature) {
         if (signature == null || signature.isBlank()) {
-            log.info("signature == null || signature.isBlank()");
+            log.info("Assinatura Twilio ausente");
             return false;
         }
+
         String ecNumber = normalizeFromNumber(WhatsAppWebhookParser.extractTo(payload).orElse(null));
         log.info("ecNumber {}", ecNumber);
         if (ecNumber == null) {
             return false;
         }
+
         WhatsAppCanal canal = canalRepository.findByFromNumber(ecNumber).orElse(null);
-        log.info("canal {}", canal);
-        if (canal == null) {
+        if (canal == null || canal.getAuthSigningKey() == null || canal.getAuthSigningKey().isBlank()) {
+            log.info("Canal nao encontrado ou authSigningKey ausente para numero {}", ecNumber);
             return false;
         }
-        byte[] calculada = gerarAssinaturaTwilio(requestUrl, payload, canal.getAuthSigningKey());
-        if (calculada.length == 0) {
-            log.info("calculada.length == 0");
-            return false;
-        }
-        try {
-            byte[] recebida = Base64.getDecoder().decode(signature);
-            log.info("calculada = {} | recebida = {} | MessageDigest.isEqual(calculada, recebida) = {}", calculada, recebida, MessageDigest.isEqual(calculada, recebida));
-            return MessageDigest.isEqual(calculada, recebida);
-        } catch (IllegalArgumentException ex) {
-            return false;
-        }
-    }
 
-    private byte[] gerarAssinaturaTwilio(String requestUrl, MultiValueMap<String, String> payload, String authSigningKey) {
-        try {
-            StringBuilder signatureBase = new StringBuilder(requestUrl);
-            TreeMap<String, java.util.List<String>> sortedParams = new TreeMap<>(payload);
-            sortedParams.forEach((key, values) -> {
-                if (values == null || values.isEmpty()) {
-                    signatureBase.append(key);
-                    return;
-                }
-                for (String value : values) {
-                    signatureBase.append(key).append(value == null ? "" : value);
-                }
-            });
-
-            Mac mac = Mac.getInstance("HmacSHA1");
-            mac.init(new SecretKeySpec(authSigningKey.getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
-            return mac.doFinal(signatureBase.toString().getBytes(StandardCharsets.UTF_8));
-        } catch (Exception ex) {
-            log.info("Falha ao gerar assinatura Twilio", ex);
-            return new byte[0];
-        }
+        Map<String, String> params = payload.toSingleValueMap();
+        boolean valido = new RequestValidator(canal.getAuthSigningKey()).validate(requestUrl, params, signature);
+        log.info("Validacao assinatura Twilio para canal {}: {}", ecNumber, valido);
+        return valido;
     }
 
     private String normalizeFromNumber(String rawFromNumber) {
