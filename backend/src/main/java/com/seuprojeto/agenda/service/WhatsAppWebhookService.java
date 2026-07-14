@@ -12,7 +12,6 @@ import org.springframework.util.MultiValueMap;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.time.LocalDateTime;
 
 @Slf4j
 @Service
@@ -25,7 +24,6 @@ public class WhatsAppWebhookService {
     private final AuditoriaService auditoriaService;
     private final WhatsAppCanalRepository canalRepository;
     private final WhatsAppFluxoAgendamentoService fluxoAgendamentoService;
-    private final WhatsAppRespostaAutomaticaService respostaAutomaticaService;
 
     public WhatsAppWebhookService(WhatsAppCanalService canalService,
                                   ClienteService clienteService,
@@ -33,8 +31,7 @@ public class WhatsAppWebhookService {
                                   OfertaRemanejamentoService ofertaService,
                                   AuditoriaService auditoriaService,
                                   WhatsAppCanalRepository canalRepository,
-                                  WhatsAppFluxoAgendamentoService fluxoAgendamentoService,
-                                  WhatsAppRespostaAutomaticaService respostaAutomaticaService) {
+                                  WhatsAppFluxoAgendamentoService fluxoAgendamentoService) {
         this.canalService = canalService;
         this.clienteService = clienteService;
         this.messageService = messageService;
@@ -42,7 +39,6 @@ public class WhatsAppWebhookService {
         this.auditoriaService = auditoriaService;
         this.canalRepository = canalRepository;
         this.fluxoAgendamentoService = fluxoAgendamentoService;
-        this.respostaAutomaticaService = respostaAutomaticaService;
     }
 
     public void processar(MultiValueMap<String, String> payload) {

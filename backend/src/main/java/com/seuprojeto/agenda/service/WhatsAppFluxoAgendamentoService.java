@@ -38,14 +38,27 @@ public class WhatsAppFluxoAgendamentoService {
 
     public void processarResposta(String estabelecimentoId, String clienteId, String nomeCliente, String whatsapp,
                                   WhatsAppCanal canal, String textoResposta) {
-        ConversaEstado estado = conversaEstadoRepository
-            .findByEstabelecimentoIdAndClienteId(estabelecimentoId, clienteId)
-            .orElse(novoEstado(estabelecimentoId, clienteId));
+        Optional<ConversaEstado> estadoExistente = conversaEstadoRepository
+            .findByEstabelecimentoIdAndClienteId(estabelecimentoId, clienteId);
+
+        boolean primeiroContato = estadoExistente.isEmpty();
+        ConversaEstado estado = estadoExistente.orElseGet(() -> novoEstado(estabelecimentoId, clienteId));
+
+        if (primeiroContato) {
+            conversaEstadoRepository.save(estado);
+            respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp);
+            return;
+        }
 
         String etapa = estado.getEtapa();
         int opcao = parseOpcao(textoResposta);
 
         log.info("Processando resposta para clienteId: {}, etapa: {}, opcao: {}", clienteId, etapa, opcao);
+
+        if ("INICIAL".equals(etapa) && !isOpcaoMenuPrincipal(opcao)) {
+            respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp);
+            return;
+        }
 
         switch (etapa) {
             case "INICIAL" -> processarMenuPrincipal(estado, canal, clienteId, nomeCliente, whatsapp, opcao);
@@ -279,7 +292,8 @@ public class WhatsAppFluxoAgendamentoService {
             return -1;
         }
     }
+
+    private boolean isOpcaoMenuPrincipal(int opcao) {
+        return opcao >= 1 && opcao <= 3;
+    }
 }
-
-
-
