@@ -12,6 +12,7 @@ import org.springframework.util.MultiValueMap;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.time.LocalDateTime;
 
 @Slf4j
 @Service
@@ -23,19 +24,25 @@ public class WhatsAppWebhookService {
     private final OfertaRemanejamentoService ofertaService;
     private final AuditoriaService auditoriaService;
     private final WhatsAppCanalRepository canalRepository;
+    private final WhatsAppFluxoAgendamentoService fluxoAgendamentoService;
+    private final WhatsAppRespostaAutomaticaService respostaAutomaticaService;
 
     public WhatsAppWebhookService(WhatsAppCanalService canalService,
                                   ClienteService clienteService,
                                   WhatsAppMessageService messageService,
                                   OfertaRemanejamentoService ofertaService,
                                   AuditoriaService auditoriaService,
-                                  WhatsAppCanalRepository canalRepository) {
+                                  WhatsAppCanalRepository canalRepository,
+                                  WhatsAppFluxoAgendamentoService fluxoAgendamentoService,
+                                  WhatsAppRespostaAutomaticaService respostaAutomaticaService) {
         this.canalService = canalService;
         this.clienteService = clienteService;
         this.messageService = messageService;
         this.ofertaService = ofertaService;
         this.auditoriaService = auditoriaService;
         this.canalRepository = canalRepository;
+        this.fluxoAgendamentoService = fluxoAgendamentoService;
+        this.respostaAutomaticaService = respostaAutomaticaService;
     }
 
     public void processar(MultiValueMap<String, String> payload) {
@@ -60,9 +67,14 @@ public class WhatsAppWebhookService {
         String texto = WhatsAppWebhookParser.extractText(payload).orElse("").trim();
         String messageId = WhatsAppWebhookParser.extractMessageId(payload).orElse(null);
 
-        messageService.registrarRecebida(canal.getEstabelecimentoId(), cliente.getId(), canal.getId(), messageId, texto, new HashMap<String, Object>(payload.toSingleValueMap()));
+        messageService.registrarRecebida(canal.getEstabelecimentoId(), cliente.getId(), canal.getId(), messageId, texto, new HashMap<>(payload.toSingleValueMap()));
         auditoriaService.registrar(canal.getEstabelecimentoId(), "MENSAGEM_RECEBIDA", "MensagemWhatsApp", messageId, "Mensagem recebida pelo webhook");
 
+        // Chamar fluxo automático de agendamento
+        fluxoAgendamentoService.processarResposta(canal.getEstabelecimentoId(), cliente.getId(), cliente.getNome(),
+            cliente.getWhatsapp(), canal, texto);
+
+        // Legacy: manter compatibilidade com oferta remanejamento se necessário
         if ("1".equals(texto) || "2".equals(texto)) {
             try {
                 ofertaService.processarRespostaCliente(cliente.getId(), texto);

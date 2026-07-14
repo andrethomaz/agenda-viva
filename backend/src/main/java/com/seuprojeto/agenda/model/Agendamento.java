@@ -1,6 +1,7 @@
 package com.seuprojeto.agenda.model;
 
 import lombok.Data;
+import lombok.Getter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
@@ -15,6 +16,7 @@ import java.time.LocalDateTime;
         @CompoundIndex(name = "idx_est_cliente_inicio", def = "{'estabelecimentoId': 1, 'clienteId': 1, 'dataHoraInicio': 1}")
 })
 @Data
+@Getter
 public class Agendamento {
     @Id
     private String id;
