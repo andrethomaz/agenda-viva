@@ -60,7 +60,7 @@ public class WhatsAppRespostaAutomaticaService {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         IntStream.range(0, horarios.size()).forEach(i -> {
             LocalDateTime h = horarios.get(i);
-            sb.append(String.format("%d️⃣ %s\n", i + 1, h.format(formatter)));
+            sb.append(String.format("%d - %s\n", i + 1, h.format(formatter)));
         });
         messageService.enviarTexto(canal, clienteId, whatsapp, sb.toString().trim(), "ENVIADA");
     }

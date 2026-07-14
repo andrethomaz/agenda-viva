@@ -15,6 +15,8 @@ import java.util.stream.Collectors;
 @Service
 public class WhatsAppFluxoAgendamentoService {
 
+    private static final int MAX_HORARIOS_EXIBIDOS = 10;
+
     private final ConversaEstadoRepository conversaEstadoRepository;
     private final ServicoRepository servicoRepository;
     private final ProfissionalRepository profissionalRepository;
@@ -158,17 +160,17 @@ public class WhatsAppFluxoAgendamentoService {
         estado.getDadosTemporarios().put("profissionalNome", profissionalEscolhido.getNome());
 
         // Gerar horários disponíveis (próximos 7 dias, horário funcionamento do estabelecimento)
-        List<LocalDateTime> horariosDisponiveis = gerarHorariosDisponiveis(estado.getEstabelecimentoId(), profissionalEscolhido.getId());
+        List<LocalDateTime> todosHorarios = gerarHorariosDisponiveis(estado.getEstabelecimentoId(), profissionalEscolhido.getId());
+        List<LocalDateTime> horariosExibidos = todosHorarios.stream().limit(MAX_HORARIOS_EXIBIDOS).collect(Collectors.toList());
 
-        if (horariosDisponiveis.isEmpty()) {
+        if (horariosExibidos.isEmpty()) {
             respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
                 "Nenhum horário disponível. Tente novamente mais tarde.", "ENVIADA");
             estado.setEtapa("INICIAL");
         } else {
             estado.setEtapa("AGUARDANDO_HORARIO");
-            respostaAutomaticaService.enviarListaHorarios(canal, clienteId, whatsapp, profissionalEscolhido.getNome(), horariosDisponiveis);
-            // Armazenar horários na temporary data para referência posterior
-            estado.getDadosTemporarios().put("horariosDisponiveisCount", String.valueOf(horariosDisponiveis.size()));
+            respostaAutomaticaService.enviarListaHorarios(canal, clienteId, whatsapp, profissionalEscolhido.getNome(), horariosExibidos);
+            estado.getDadosTemporarios().put("horariosDisponiveisCount", String.valueOf(horariosExibidos.size()));
         }
 
         conversaEstadoRepository.save(estado);
@@ -184,9 +186,11 @@ public class WhatsAppFluxoAgendamentoService {
             return;
         }
 
-        // Regenerar horários para pegar o selecionado (simplificado; em produção considerar cache)
+        // Regenerar horários e limitar ao mesmo teto usado na exibição
+
         List<LocalDateTime> horarios = gerarHorariosDisponiveis(estado.getEstabelecimentoId(),
-            estado.getDadosTemporarios().get("profissionalId"));
+            estado.getDadosTemporarios().get("profissionalId"))
+            .stream().limit(MAX_HORARIOS_EXIBIDOS).collect(Collectors.toList());
 
         if (opcao > horarios.size()) {
             respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
