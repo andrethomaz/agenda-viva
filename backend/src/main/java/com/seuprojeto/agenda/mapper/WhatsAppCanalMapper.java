@@ -13,11 +13,15 @@ public class WhatsAppCanalMapper {
     }
 
     public void updateEntity(WhatsAppCanal entity, WhatsAppCanalRequest request) {
-        entity.setEstabelecimentoId(request.getEstabelecimentoId());
-        entity.setFromNumber(request.getFromNumber());
-        entity.setAccountSid(request.getAccountSid());
-        entity.setAuthToken(request.getAuthToken());
-        entity.setAuthSigningKey(request.getAuthSigningKey());
+        entity.setEstabelecimentoId(trim(request.getEstabelecimentoId()));
+        entity.setFromNumber(trim(request.getFromNumber()));
+        entity.setAccountSid(trim(request.getAccountSid()));
+        entity.setAuthToken(trim(request.getAuthToken()));
+        entity.setAuthSigningKey(trim(request.getAuthSigningKey()));
         entity.setAtivo(request.isAtivo());
+    }
+
+    private String trim(String value) {
+        return value == null ? null : value.trim();
     }
 }
