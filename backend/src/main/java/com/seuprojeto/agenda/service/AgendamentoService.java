@@ -108,6 +108,37 @@ public class AgendamentoService {
         return saved;
     }
 
+    public Agendamento cancelarParaWhatsApp(String id, String motivo) {
+        Agendamento existing = findById(id);
+        if (existing.getStatus() == AgendamentoStatus.CANCELADO) {
+            throw new BusinessException("Agendamento já está cancelado");
+        }
+        existing.setStatus(AgendamentoStatus.CANCELADO);
+        Agendamento saved = repository.save(existing);
+        registrarHistorico(saved, "CANCELAMENTO", motivo == null ? "Agendamento cancelado" : motivo);
+        auditoriaService.registrar(saved.getEstabelecimentoId(), "CANCELAMENTO", "Agendamento", saved.getId(), "Agendamento cancelado via WhatsApp");
+        return saved;
+    }
+
+    public Agendamento reagendarParaWhatsApp(String id, LocalDateTime novoInicio) {
+        Agendamento existing = findById(id);
+        if (existing.getStatus() == AgendamentoStatus.CANCELADO) {
+            throw new BusinessException("Nao é possivel reagendar um agendamento cancelado");
+        }
+
+        Servico servico = servicoService.findById(existing.getServicoId());
+        Profissional profissional = profissionalService.findById(existing.getProfissionalId());
+
+        existing.setDataHoraInicio(novoInicio);
+        existing.setDataHoraFim(disponibilidadeService.validarECalcularFim(existing, profissional, servico));
+        existing.setStatus(AgendamentoStatus.REAGENDADO);
+
+        Agendamento saved = repository.save(existing);
+        registrarHistorico(saved, "REAGENDAMENTO", "Agendamento reagendado via WhatsApp");
+        auditoriaService.registrar(saved.getEstabelecimentoId(), "REAGENDAMENTO", "Agendamento", saved.getId(), "Agendamento reagendado via WhatsApp");
+        return saved;
+    }
+
     private void validarReferencias(Agendamento agendamento) {
         estabelecimentoService.findById(agendamento.getEstabelecimentoId());
         Cliente cliente = clienteService.findById(agendamento.getClienteId());

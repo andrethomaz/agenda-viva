@@ -32,12 +32,17 @@ public class WhatsAppRespostaAutomaticaService {
             log.warn("Falha ao buscar nome do estabelecimento {}: {}", estabelecimentoId, ex.getMessage());
         }
 
-        String mensagem = String.format(
-            "Olá %s! 👋 Espero que esteja bem :) \n\n" +
-            "Sou a Agenda-viva - %s. Posso te ajudar a:\n\n" +
-            "1️⃣ Agendar horário\n" +
-            "2️⃣ Remarcar\n" +
-            "3️⃣ Cancelar",
+        String mensagem = String.format("""
+            Olá %s! 👋 Espero que esteja bem 😀
+
+            🖥️ Sou o sistema de Agenda-viva do %s.
+            
+            💡 Posso te ajudar a:
+
+            1️⃣ Agendar horário
+            2️⃣ Remarcar
+            3️⃣ Cancelar
+            """,
             nomeCliente != null ? nomeCliente : "Cliente",
             nomeEstabelecimento
         );
@@ -78,19 +83,63 @@ public class WhatsAppRespostaAutomaticaService {
                                              Agendamento agendamento, String nomeEstabelecimento,
                                              String nomeProcedimento, String nomeProfissional) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-        String mensagem = String.format(
-            "✅ Agendamento confirmado!\n\n" +
-            "📍 Estabelecimento: %s\n" +
-            "🏥 Procedimento: %s\n" +
-            "👨‍⚕️ Profissional: %s\n" +
-            "📅 Data e Hora: %s\n\n" +
-            "Seu ID de agendamento: %s\n\n" +
-            "Obrigado por agendar conosco! 🙏",
+        String mensagem = String.format("""
+            ✅ Agendamento confirmado!
+
+            📍 Estabelecimento: %s
+            🏥 Procedimento: %s
+            👨‍⚕️ Profissional: %s
+            📅 Data e Hora: %s
+
+            Seu ID de agendamento: %s
+
+            Obrigado por agendar conosco! 🙏
+            """,
             nomeEstabelecimento,
             nomeProcedimento,
             nomeProfissional,
             agendamento.getDataHoraInicio().format(formatter),
             agendamento.getId()
+        );
+        messageService.enviarTexto(canal, clienteId, whatsapp, mensagem, "ENVIADA");
+    }
+
+    public void enviarConfirmacaoReagendamento(WhatsAppCanal canal, String clienteId, String whatsapp,
+                                               Agendamento agendamento, String nomeEstabelecimento,
+                                               String nomeProcedimento, String nomeProfissional) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        String mensagem = String.format(
+            "✅ Reagendamento confirmado!\n\n" +
+            "📍 Estabelecimento: %s\n" +
+            "🏥 Procedimento: %s\n" +
+            "👨‍⚕️ Profissional: %s\n" +
+            "📅 Nova data e hora: %s\n\n" +
+            "Seu ID de agendamento: %s\n\n" +
+            "Obrigado por reagendar conosco! 🙏",
+            nomeEstabelecimento,
+            nomeProcedimento,
+            nomeProfissional,
+            agendamento.getDataHoraInicio().format(formatter),
+            agendamento.getId()
+        );
+        messageService.enviarTexto(canal, clienteId, whatsapp, mensagem, "ENVIADA");
+    }
+
+    public void enviarConfirmacaoCancelamento(WhatsAppCanal canal, String clienteId, String whatsapp,
+                                              Agendamento agendamento, String nomeEstabelecimento,
+                                              String nomeProcedimento, String nomeProfissional) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+        String mensagem = String.format(
+            "✅ Cancelamento confirmado!\n\n" +
+            "📍 Estabelecimento: %s\n" +
+            "🏥 Procedimento: %s\n" +
+            "👨‍⚕️ Profissional: %s\n" +
+            "📅 Data e hora canceladas: %s\n\n" +
+            "Seu agendamento foi cancelado com sucesso.",
+            nomeEstabelecimento,
+            nomeProcedimento,
+            nomeProfissional,
+            agendamento.getDataHoraInicio().format(formatter)
         );
         messageService.enviarTexto(canal, clienteId, whatsapp, mensagem, "ENVIADA");
     }

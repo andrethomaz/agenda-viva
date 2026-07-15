@@ -123,6 +123,7 @@ public class OfertaRemanejamentoService {
         long duracao = ChronoUnit.MINUTES.between(candidato.getDataHoraInicio(), candidato.getDataHoraFim());
         candidato.setDataHoraInicio(cancelado.getDataHoraInicio());
         candidato.setDataHoraFim(cancelado.getDataHoraInicio().plusMinutes(duracao));
+        candidato.setStatus(AgendamentoStatus.REMANEJADO);
         agendamentoRepository.save(candidato);
 
         oferta.setStatus(OfertaStatus.ACEITA);

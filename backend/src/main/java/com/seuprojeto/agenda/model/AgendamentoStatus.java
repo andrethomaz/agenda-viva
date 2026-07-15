@@ -4,5 +4,6 @@ public enum AgendamentoStatus {
     AGENDADO,
     CANCELADO,
     REMANEJADO,
-    CONFIRMADO
+    CONFIRMADO,
+    REAGENDADO
 }

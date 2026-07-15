@@ -14,7 +14,12 @@ import java.util.Set;
 public class DisponibilidadeService {
 
     private static final int LIMITE_PARALELISMO = 2;
-    private static final Set<AgendamentoStatus> STATUS_ATIVOS = Set.of(AgendamentoStatus.AGENDADO, AgendamentoStatus.CONFIRMADO);
+    private static final Set<AgendamentoStatus> STATUS_ATIVOS = Set.of(
+            AgendamentoStatus.AGENDADO,
+            AgendamentoStatus.CONFIRMADO,
+            AgendamentoStatus.REAGENDADO,
+            AgendamentoStatus.REMANEJADO
+    );
 
     private final HorarioFuncionamentoRepository horarioFuncionamentoRepository;
     private final AgendamentoRepository agendamentoRepository;
