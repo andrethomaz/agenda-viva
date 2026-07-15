@@ -8,9 +8,13 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class DisponibilidadeService {
+
+    private static final int LIMITE_PARALELISMO = 2;
+    private static final Set<AgendamentoStatus> STATUS_ATIVOS = Set.of(AgendamentoStatus.AGENDADO, AgendamentoStatus.CONFIRMADO);
 
     private final HorarioFuncionamentoRepository horarioFuncionamentoRepository;
     private final AgendamentoRepository agendamentoRepository;
@@ -44,23 +48,28 @@ public class DisponibilidadeService {
     }
 
     private void validarConflitos(Agendamento agendamento, Profissional profissional, LocalDateTime inicio, LocalDateTime fim) {
-        if (!profissional.isPermiteParalelismo()) {
-            List<Agendamento> conflitosProfissional = agendamentoRepository
-                    .findByEstabelecimentoIdAndProfissionalIdAndStatusAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
-                            agendamento.getEstabelecimentoId(), agendamento.getProfissionalId(), AgendamentoStatus.AGENDADO, fim, inicio)
-                    .stream()
-                    .filter(a -> !a.getId().equals(agendamento.getId()))
-                    .toList();
-            if (!conflitosProfissional.isEmpty()) {
-                throw new BusinessException("Profissional indisponível para o horário solicitado");
-            }
+        List<Agendamento> conflitosProfissional = agendamentoRepository
+                .findByEstabelecimentoIdAndProfissionalIdAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
+                        agendamento.getEstabelecimentoId(), agendamento.getProfissionalId(), fim, inicio)
+                .stream()
+                .filter(a -> STATUS_ATIVOS.contains(a.getStatus()))
+                .filter(a -> agendamento.getId() == null || !a.getId().equals(agendamento.getId()))
+                .toList();
+
+        if (!profissional.isPermiteParalelismo() && !conflitosProfissional.isEmpty()) {
+            throw new BusinessException("Profissional indisponível para o horário solicitado");
+        }
+
+        if (profissional.isPermiteParalelismo() && conflitosProfissional.size() >= LIMITE_PARALELISMO) {
+            throw new BusinessException("Profissional atingiu o limite de agendamentos simultâneos para este horário");
         }
 
         List<Agendamento> conflitosCliente = agendamentoRepository
-                .findByEstabelecimentoIdAndClienteIdAndStatusAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
-                        agendamento.getEstabelecimentoId(), agendamento.getClienteId(), AgendamentoStatus.AGENDADO, fim, inicio)
+                .findByEstabelecimentoIdAndClienteIdAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
+                        agendamento.getEstabelecimentoId(), agendamento.getClienteId(), fim, inicio)
                 .stream()
-                .filter(a -> !a.getId().equals(agendamento.getId()))
+                .filter(a -> STATUS_ATIVOS.contains(a.getStatus()))
+                .filter(a -> agendamento.getId() == null || !a.getId().equals(agendamento.getId()))
                 .toList();
         if (!conflitosCliente.isEmpty()) {
             throw new BusinessException("Cliente já possui agendamento no mesmo período");

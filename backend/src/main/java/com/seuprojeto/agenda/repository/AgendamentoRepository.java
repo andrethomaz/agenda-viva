@@ -18,10 +18,24 @@ public interface AgendamentoRepository extends MongoRepository<Agendamento, Stri
             LocalDateTime inicio
     );
 
+    List<Agendamento> findByEstabelecimentoIdAndProfissionalIdAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
+            String estabelecimentoId,
+            String profissionalId,
+            LocalDateTime fim,
+            LocalDateTime inicio
+    );
+
     List<Agendamento> findByEstabelecimentoIdAndClienteIdAndStatusAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
             String estabelecimentoId,
             String clienteId,
             AgendamentoStatus status,
+            LocalDateTime fim,
+            LocalDateTime inicio
+    );
+
+    List<Agendamento> findByEstabelecimentoIdAndClienteIdAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
+            String estabelecimentoId,
+            String clienteId,
             LocalDateTime fim,
             LocalDateTime inicio
     );
