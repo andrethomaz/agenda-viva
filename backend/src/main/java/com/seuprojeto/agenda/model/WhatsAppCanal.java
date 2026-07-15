@@ -15,7 +15,6 @@ public class WhatsAppCanal {
     private String estabelecimentoId;
     @Indexed(unique = true)
     private String fromNumber;
-    private String nome; // Nome do estabelecimento/canal
     private String accountSid;
     private String authToken;
     private String authSigningKey;

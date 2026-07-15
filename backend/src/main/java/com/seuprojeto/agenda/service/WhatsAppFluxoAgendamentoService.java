@@ -48,7 +48,7 @@ public class WhatsAppFluxoAgendamentoService {
 
         if (primeiroContato) {
             conversaEstadoRepository.save(estado);
-            respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp);
+            respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp, estabelecimentoId);
             return;
         }
 
@@ -58,7 +58,7 @@ public class WhatsAppFluxoAgendamentoService {
         log.info("Processando resposta para clienteId: {}, etapa: {}, opcao: {}", clienteId, etapa, opcao);
 
         if ("INICIAL".equals(etapa) && !isOpcaoMenuPrincipal(opcao)) {
-            respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp);
+            respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp, estabelecimentoId);
             return;
         }
 

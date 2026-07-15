@@ -17,20 +17,29 @@ import java.util.stream.IntStream;
 public class WhatsAppRespostaAutomaticaService {
 
     private final WhatsAppMessageService messageService;
+    private final EstabelecimentoService estabelecimentoService;
 
-    public WhatsAppRespostaAutomaticaService(WhatsAppMessageService messageService) {
+    public WhatsAppRespostaAutomaticaService(WhatsAppMessageService messageService, EstabelecimentoService estabelecimentoService) {
         this.messageService = messageService;
+        this.estabelecimentoService = estabelecimentoService;
     }
 
-    public void enviarMenuPrincipal(WhatsAppCanal canal, String clienteId, String nomeCliente, String whatsapp) {
+    public void enviarMenuPrincipal(WhatsAppCanal canal, String clienteId, String nomeCliente, String whatsapp, String estabelecimentoId) {
+        String nomeEstabelecimento = "estabelecimento";
+        try {
+            nomeEstabelecimento = estabelecimentoService.findById(estabelecimentoId).getNome();
+        } catch (Exception ex) {
+            log.warn("Falha ao buscar nome do estabelecimento {}: {}", estabelecimentoId, ex.getMessage());
+        }
+
         String mensagem = String.format(
             "Olá %s! 👋 Espero que esteja bem :) \n\n" +
-            "Sou a Agenda-viva do %s. Posso te ajudar a:\n\n" +
+            "Sou a Agenda-viva - %s. Posso te ajudar a:\n\n" +
             "1️⃣ Agendar horário\n" +
             "2️⃣ Remarcar\n" +
             "3️⃣ Cancelar",
             nomeCliente != null ? nomeCliente : "Cliente",
-            canal.getNome() != null ? canal.getNome() : "estabelecimento"
+            nomeEstabelecimento
         );
         messageService.enviarTexto(canal, clienteId, whatsapp, mensagem, "ENVIADA");
     }
