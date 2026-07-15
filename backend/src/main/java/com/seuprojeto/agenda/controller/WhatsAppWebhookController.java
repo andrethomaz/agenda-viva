@@ -34,7 +34,7 @@ public class WhatsAppWebhookController {
         service.processar(payload);
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_PLAIN)
-                .body("EVENT_RECEIVED");
+                .body("");
     }
 
     private String resolveRequestUrl(HttpServletRequest request) {

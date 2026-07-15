@@ -71,13 +71,13 @@ public class WhatsAppWebhookService {
             cliente.getWhatsapp(), canal, texto);
 
         // Legacy: manter compatibilidade com oferta remanejamento se necessário
-        if ("1".equals(texto) || "2".equals(texto)) {
-            try {
-                ofertaService.processarRespostaCliente(cliente.getId(), texto);
-            } catch (RuntimeException ex) {
-                messageService.enviarTexto(canal, cliente.getId(), cliente.getWhatsapp(), ex.getMessage(), "ENVIADA");
-            }
-        }
+//        if ("1".equals(texto) || "2".equals(texto)) {
+//            try {
+//                ofertaService.processarRespostaCliente(cliente.getId(), texto);
+//            } catch (RuntimeException ex) {
+//                messageService.enviarTexto(canal, cliente.getId(), cliente.getWhatsapp(), ex.getMessage(), "ENVIADA");
+//            }
+//        }
     }
 
     public boolean validarAssinaturaTwilio(String requestUrl, MultiValueMap<String, String> payload, String signature) {
