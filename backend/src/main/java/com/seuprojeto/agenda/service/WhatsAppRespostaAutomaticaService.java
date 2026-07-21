@@ -7,14 +7,18 @@ import com.seuprojeto.agenda.model.WhatsAppCanal;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.List;
 import java.util.stream.IntStream;
 
 @Slf4j
 @Service
 public class WhatsAppRespostaAutomaticaService {
+
+    private static final NumberFormat BRL = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
 
     private final WhatsAppMessageService messageService;
     private final EstabelecimentoService estabelecimentoService;
@@ -33,15 +37,14 @@ public class WhatsAppRespostaAutomaticaService {
         }
 
         String mensagem = String.format("""
-            Olá %s! 👋 Espero que esteja bem 😀
-
-            🖥️ Sou o sistema de Agenda-viva do %s.
-            
+            🤖 Olá %s! 👋 Espero que esteja bem 😀
+            🖥️ Sou o sistema de Agenda-viva do(a) %s.
             💡 Posso te ajudar a:
 
-            1️⃣ Agendar horário
-            2️⃣ Remarcar
-            3️⃣ Cancelar
+            1️⃣ - Agendar horario 🕒
+            2️⃣ - Remarcar 🔁
+            3️⃣ - Cancelar 🚫
+            0️⃣ - Falar com atendente 👩‍🚀
             """,
             nomeCliente != null ? nomeCliente : "Cliente",
             nomeEstabelecimento
@@ -53,8 +56,14 @@ public class WhatsAppRespostaAutomaticaService {
         StringBuilder sb = new StringBuilder("Escolha um serviço:\n\n");
         IntStream.range(0, servicos.size()).forEach(i -> {
             Servico s = servicos.get(i);
-            sb.append(String.format("%d️⃣ %s\n", i + 1, s.getNome()));
+            String preco = s.getPreco() == null ? "Nao informado" : BRL.format(s.getPreco());
+            String descricao = (s.getDescricao() == null || s.getDescricao().isBlank()) ? "Sem descricao" : s.getDescricao();
+            sb.append(String.format("%d - %s\n", i + 1, s.getNome()));
+            sb.append(String.format("   Valor \uD83D\uDCB0: %s\n", preco));
+            sb.append(String.format("   Duracao ⏳: %d min\n", s.getTempoExecucaoMinutos()));
+            sb.append(String.format("   Descricao \uD83D\uDCCB: %s\n\n", descricao));
         });
+        sb.append("0️⃣ - Falar com atendente 👩‍🚀");
         messageService.enviarTexto(canal, clienteId, whatsapp, sb.toString().trim(), "ENVIADA");
     }
 
@@ -63,8 +72,9 @@ public class WhatsAppRespostaAutomaticaService {
         StringBuilder sb = new StringBuilder(String.format("Profissionais que realizam %s:\n\n", nomeServico));
         IntStream.range(0, profissionais.size()).forEach(i -> {
             Profissional p = profissionais.get(i);
-            sb.append(String.format("%d️⃣ %s\n", i + 1, p.getNome()));
+            sb.append(String.format("%d - %s\n", i + 1, p.getNome()));
         });
+        sb.append("\n0 - Falar com atendente 👩‍🚀");
         messageService.enviarTexto(canal, clienteId, whatsapp, sb.toString().trim(), "ENVIADA");
     }
 
@@ -76,7 +86,20 @@ public class WhatsAppRespostaAutomaticaService {
             LocalDateTime h = horarios.get(i);
             sb.append(String.format("%d - %s\n", i + 1, h.format(formatter)));
         });
+        sb.append("\n0️⃣ - Falar com atendente 👩‍🚀");
         messageService.enviarTexto(canal, clienteId, whatsapp, sb.toString().trim(), "ENVIADA");
+    }
+
+    public void enviarMenuAtendente(WhatsAppCanal canal, String clienteId, String whatsapp) {
+        String mensagem = "🤖 Voce escolheu falar com o atendente.\n\n"
+            + "1️⃣ - Continuar de onde parei \uD83D\uDD1C \n"
+            + "2️⃣ - Encerrar atendimento ⛔";
+        messageService.enviarTexto(canal, clienteId, whatsapp, mensagem, "ENVIADA");
+    }
+
+    public void enviarMensagemEncerramentoAtendimento(WhatsAppCanal canal, String clienteId, String whatsapp) {
+        messageService.enviarTexto(canal, clienteId, whatsapp,
+            "🤖 Atendimento encerrado. Quando quiser, envie uma nova mensagem para comecar novamente. \uD83D\uDE09", "ENVIADA");
     }
 
     public void enviarConfirmacaoAgendamento(WhatsAppCanal canal, String clienteId, String whatsapp,
@@ -84,7 +107,7 @@ public class WhatsAppRespostaAutomaticaService {
                                              String nomeProcedimento, String nomeProfissional) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         String mensagem = String.format("""
-            ✅ Agendamento confirmado!
+            🤖 Agendamento confirmado! ✅
 
             📍 Estabelecimento: %s
             🏥 Procedimento: %s
@@ -109,7 +132,7 @@ public class WhatsAppRespostaAutomaticaService {
                                                String nomeProcedimento, String nomeProfissional) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         String mensagem = String.format(
-            "✅ Reagendamento confirmado!\n\n" +
+            "🤖 Reagendamento confirmado! ✅\n\n" +
             "📍 Estabelecimento: %s\n" +
             "🏥 Procedimento: %s\n" +
             "👨‍⚕️ Profissional: %s\n" +
@@ -130,7 +153,7 @@ public class WhatsAppRespostaAutomaticaService {
                                               String nomeProcedimento, String nomeProfissional) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         String mensagem = String.format(
-            "✅ Cancelamento confirmado!\n\n" +
+            "🤖 Cancelamento confirmado! ✅\n\n" +
             "📍 Estabelecimento: %s\n" +
             "🏥 Procedimento: %s\n" +
             "👨‍⚕️ Profissional: %s\n" +

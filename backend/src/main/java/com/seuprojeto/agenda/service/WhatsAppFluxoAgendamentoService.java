@@ -15,10 +15,16 @@ import java.util.stream.Collectors;
 @Service
 public class WhatsAppFluxoAgendamentoService {
 
-    private static final int DIAS_EXIBICAO_HORARIOS = 2;
+    private static final int DIAS_UTEIS_EXIBICAO_HORARIOS = 2;
     private static final int JANELA_MINIMA_MINUTOS = 30;
+    private static final int TIMEOUT_CONVERSA_MINUTOS = 5;
+    private static final int OPCAO_ATENDENTE = 0;
     private static final int LIMITE_PARALELISMO = 2;
-    private static final Set<AgendamentoStatus> STATUS_ATIVOS = Set.of(AgendamentoStatus.AGENDADO, AgendamentoStatus.CONFIRMADO);
+    private static final Set<AgendamentoStatus> STATUS_ATIVOS = Set.of(
+        AgendamentoStatus.AGENDADO,
+        AgendamentoStatus.CONFIRMADO,
+        AgendamentoStatus.REAGENDADO
+    );
 
     private final ConversaEstadoRepository conversaEstadoRepository;
     private final ServicoRepository servicoRepository;
@@ -52,13 +58,26 @@ public class WhatsAppFluxoAgendamentoService {
 
     public void processarResposta(String estabelecimentoId, String clienteId, String nomeCliente, String whatsapp,
                                   WhatsAppCanal canal, String textoResposta) {
+        LocalDateTime agora = LocalDateTime.now();
         Optional<ConversaEstado> estadoExistente = conversaEstadoRepository
             .findByEstabelecimentoIdAndClienteId(estabelecimentoId, clienteId);
 
         boolean primeiroContato = estadoExistente.isEmpty();
         ConversaEstado estado = estadoExistente.orElseGet(() -> novoEstado(estabelecimentoId, clienteId));
+        if (estado.getDadosTemporarios() == null) {
+            estado.setDadosTemporarios(new HashMap<>());
+        }
+        boolean conversaExpirada = !primeiroContato
+            && estado.getUltimaAtualizacao() != null
+            && estado.getUltimaAtualizacao().plusMinutes(TIMEOUT_CONVERSA_MINUTOS).isBefore(agora);
 
-        if (primeiroContato) {
+        if (primeiroContato || conversaExpirada) {
+            estado.setEtapa("INICIAL");
+            estado.setDadosTemporarios(new HashMap<>());
+            if (estado.getCriadoEm() == null) {
+                estado.setCriadoEm(agora);
+            }
+            estado.setUltimaAtualizacao(agora);
             conversaEstadoRepository.save(estado);
             respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp, estabelecimentoId);
             return;
@@ -66,26 +85,37 @@ public class WhatsAppFluxoAgendamentoService {
 
         String etapa = estado.getEtapa();
         int opcao = parseOpcao(textoResposta);
+        estado.setUltimaAtualizacao(agora);
 
         log.info("Processando resposta para clienteId: {}, etapa: {}, opcao: {}", clienteId, etapa, opcao);
 
+        if (!"ATENDENTE".equals(etapa) && opcao == OPCAO_ATENDENTE) {
+            estado.getDadosTemporarios().put("etapaRetorno", etapa);
+            estado.setEtapa("ATENDENTE");
+            salvarEstado(estado);
+            respostaAutomaticaService.enviarMenuAtendente(canal, clienteId, whatsapp);
+            return;
+        }
+
         if ("INICIAL".equals(etapa) && !isOpcaoMenuPrincipal(opcao)) {
+            salvarEstado(estado);
             respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp, estabelecimentoId);
             return;
         }
 
         switch (etapa) {
-            case "INICIAL" -> processarMenuPrincipal(estado, canal, clienteId, whatsapp, opcao);
+            case "INICIAL" -> processarMenuPrincipal(estado, canal, clienteId, nomeCliente, whatsapp, opcao);
             case "AGUARDANDO_SERVICO" -> processarSelecaoServico(estado, canal, clienteId, whatsapp, opcao);
             case "AGUARDANDO_PROFISSIONAL" -> processarSelecaoProfissional(estado, canal, clienteId, whatsapp, opcao);
             case "AGUARDANDO_HORARIO" -> processarSelecaoHorario(estado, canal, clienteId, whatsapp, opcao);
             case "AGUARDANDO_REAGENDAMENTO_HORARIO" -> processarSelecaoHorarioReagendamento(estado, canal, clienteId, whatsapp, opcao);
+            case "ATENDENTE" -> processarMenuAtendente(estado, canal, clienteId, nomeCliente, whatsapp, opcao);
             default -> log.info("Etapa desconhecida: {}", etapa);
         }
     }
 
     private void processarMenuPrincipal(ConversaEstado estado, WhatsAppCanal canal, String clienteId,
-                                        String whatsapp, int opcao) {
+                                        String nomeCliente, String whatsapp, int opcao) {
         switch (opcao) {
             case 1 -> {
                 // Agendar horário
@@ -100,7 +130,7 @@ public class WhatsAppFluxoAgendamentoService {
 
                 estado.setEtapa("AGUARDANDO_SERVICO");
                 estado.setDadosTemporarios(new HashMap<>());
-                conversaEstadoRepository.save(estado);
+                salvarEstado(estado);
 
                 respostaAutomaticaService.enviarListaServicos(canal, clienteId, whatsapp, servicos);
             }
@@ -119,7 +149,7 @@ public class WhatsAppFluxoAgendamentoService {
                 estado.getDadosTemporarios().put("servicoId", agendamentoAtual.getServicoId());
                 estado.getDadosTemporarios().put("profissionalNome", profissionalRepository.findById(agendamentoAtual.getProfissionalId())
                         .map(Profissional::getNome).orElse("Profissional"));
-                conversaEstadoRepository.save(estado);
+                salvarEstado(estado);
 
                 Servico servicoAtual = servicoRepository.findById(agendamentoAtual.getServicoId()).orElse(null);
                 Profissional profissionalAtual = profissionalRepository.findById(agendamentoAtual.getProfissionalId()).orElse(null);
@@ -127,7 +157,7 @@ public class WhatsAppFluxoAgendamentoService {
                     respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
                             "Nao foi possivel carregar os dados do agendamento para reagendamento.", "ENVIADA");
                     estado.setEtapa("INICIAL");
-                    conversaEstadoRepository.save(estado);
+                    salvarEstado(estado);
                     return;
                 }
 
@@ -141,13 +171,13 @@ public class WhatsAppFluxoAgendamentoService {
                     respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
                             "Nenhum horario disponivel para reagendamento.", "ENVIADA");
                     estado.setEtapa("INICIAL");
-                    conversaEstadoRepository.save(estado);
+                    salvarEstado(estado);
                     return;
                 }
 
                 respostaAutomaticaService.enviarListaHorarios(canal, clienteId, whatsapp, profissionalAtual.getNome(), horariosExibidos);
                 estado.getDadosTemporarios().put("horariosDisponiveisCount", String.valueOf(horariosExibidos.size()));
-                conversaEstadoRepository.save(estado);
+                salvarEstado(estado);
             }
             case 3 -> {
                 Agendamento agendamentoAtual = buscarAgendamentoAtivoAtual(estado.getEstabelecimentoId(), clienteId);
@@ -169,6 +199,25 @@ public class WhatsAppFluxoAgendamentoService {
             default -> respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
                 "Opção inválida. Por favor, escolha 1, 2 ou 3.", "ENVIADA");
         }
+    }
+
+    private void processarMenuAtendente(ConversaEstado estado, WhatsAppCanal canal, String clienteId,
+                                        String nomeCliente, String whatsapp, int opcao) {
+        if (opcao == 1) {
+            String etapaRetorno = estado.getDadosTemporarios().getOrDefault("etapaRetorno", "INICIAL");
+            estado.setEtapa(etapaRetorno);
+            estado.getDadosTemporarios().remove("etapaRetorno");
+            salvarEstado(estado);
+            reenviarMensagemDaEtapa(estado, canal, clienteId, nomeCliente, whatsapp);
+            return;
+        }
+        if (opcao == 2) {
+            limparEstado(estado);
+            respostaAutomaticaService.enviarMensagemEncerramentoAtendimento(canal, clienteId, whatsapp);
+            return;
+        }
+        respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+            "Opcao invalida. Escolha 1 para continuar ou 2 para encerrar.", "ENVIADA");
     }
 
     private void processarSelecaoServico(ConversaEstado estado, WhatsAppCanal canal, String clienteId,
@@ -202,7 +251,7 @@ public class WhatsAppFluxoAgendamentoService {
             respostaAutomaticaService.enviarListaProfissionais(canal, clienteId, whatsapp, servicoEscolhido.getNome(), profissionais);
         }
 
-        conversaEstadoRepository.save(estado);
+        salvarEstado(estado);
     }
 
     private void processarSelecaoProfissional(ConversaEstado estado, WhatsAppCanal canal, String clienteId,
@@ -229,7 +278,7 @@ public class WhatsAppFluxoAgendamentoService {
             respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
                 "Servico nao encontrado.", "ENVIADA");
             estado.setEtapa("INICIAL");
-            conversaEstadoRepository.save(estado);
+            salvarEstado(estado);
             return;
         }
 
@@ -250,7 +299,7 @@ public class WhatsAppFluxoAgendamentoService {
             estado.getDadosTemporarios().put("horariosDisponiveisCount", String.valueOf(horariosExibidos.size()));
         }
 
-        conversaEstadoRepository.save(estado);
+        salvarEstado(estado);
     }
 
     private void processarSelecaoHorario(ConversaEstado estado, WhatsAppCanal canal, String clienteId,
@@ -272,7 +321,7 @@ public class WhatsAppFluxoAgendamentoService {
             respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
                 "Nao foi possivel continuar o agendamento. Tente novamente.", "ENVIADA");
             estado.setEtapa("INICIAL");
-            conversaEstadoRepository.save(estado);
+            salvarEstado(estado);
             return;
         }
 
@@ -346,7 +395,7 @@ public class WhatsAppFluxoAgendamentoService {
             respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
                     "Este agendamento ja foi cancelado.", "ENVIADA");
             estado.setEtapa("INICIAL");
-            conversaEstadoRepository.save(estado);
+            salvarEstado(estado);
             return;
         }
         Profissional profissional = profissionalRepository.findById(profissionalId).orElse(null);
@@ -355,7 +404,7 @@ public class WhatsAppFluxoAgendamentoService {
             respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
                     "Nao foi possivel continuar o reagendamento. Tente novamente.", "ENVIADA");
             estado.setEtapa("INICIAL");
-            conversaEstadoRepository.save(estado);
+            salvarEstado(estado);
             return;
         }
 
@@ -387,31 +436,35 @@ public class WhatsAppFluxoAgendamentoService {
         List<LocalDateTime> horarios = new ArrayList<>();
         LocalDateTime agora = LocalDateTime.now();
         LocalDateTime inicioMinimo = alinharParaSlot(agora.plusMinutes(JANELA_MINIMA_MINUTOS));
-        LocalDate dataAtual = agora.toLocalDate();
+        LocalDate dataCursor = inicioMinimo.toLocalDate();
+        int diasUteisComHorarios = 0;
+        int diasVerificados = 0;
 
-        for (int dia = 0; dia < DIAS_EXIBICAO_HORARIOS; dia++) {
-            LocalDate data = dataAtual.plusDays(dia);
+        while (diasUteisComHorarios < DIAS_UTEIS_EXIBICAO_HORARIOS && diasVerificados < 14) {
+            LocalDate data = dataCursor;
+            diasVerificados++;
+            dataCursor = dataCursor.plusDays(1);
 
             // Buscar horário de funcionamento para este dia
             HorarioFuncionamento hf = horarioFuncionamentoRepository
                 .findByEstabelecimentoIdAndDiaSemana(estabelecimentoId, data.getDayOfWeek())
                 .stream().findFirst().orElse(null);
 
-            if (hf == null || hf.isFechado()) continue;
+            if (hf == null || hf.isFechado()) {
+                continue;
+            }
 
             LocalTime abertura = hf.getAbertura();
             LocalTime fechamento = hf.getFechamento();
 
-            // Gerar slots de 30 minutos
-            LocalTime slot = abertura;
-            if (dia == 0 && inicioMinimo.toLocalDate().equals(data)) {
-                LocalTime slotMinimoHoje = inicioMinimo.toLocalTime();
-                if (slot.isBefore(slotMinimoHoje)) {
-                    slot = slotMinimoHoje;
-                }
+            LocalDateTime inicioDia = LocalDateTime.of(data, abertura);
+            if (inicioDia.isBefore(inicioMinimo)) {
+                inicioDia = inicioMinimo;
             }
+            LocalTime slot = alinharParaSlot(inicioDia).toLocalTime();
+            int horariosAntesDoDia = horarios.size();
 
-            while (slot.isBefore(fechamento.minusMinutes(30))) {
+            while (!slot.plusMinutes(duracaoMinutos).isAfter(fechamento)) {
                 LocalDateTime dateTime = LocalDateTime.of(data, slot);
                 LocalDateTime fimSlot = dateTime.plusMinutes(duracaoMinutos);
 
@@ -430,9 +483,108 @@ public class WhatsAppFluxoAgendamentoService {
 
                 slot = slot.plusMinutes(30);
             }
+
+            if (horarios.size() > horariosAntesDoDia) {
+                diasUteisComHorarios++;
+            }
         }
 
         return horarios;
+    }
+
+    private void reenviarMensagemDaEtapa(ConversaEstado estado, WhatsAppCanal canal, String clienteId,
+                                         String nomeCliente, String whatsapp) {
+        switch (estado.getEtapa()) {
+            case "INICIAL" -> respostaAutomaticaService.enviarMenuPrincipal(
+                canal,
+                clienteId,
+                nomeCliente,
+                whatsapp,
+                estado.getEstabelecimentoId()
+            );
+            case "AGUARDANDO_SERVICO" -> {
+                List<Servico> servicos = servicoRepository.findByEstabelecimentoId(estado.getEstabelecimentoId())
+                    .stream().filter(Servico::isAtivo).toList();
+                if (servicos.isEmpty()) {
+                    respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                        "Desculpe, nenhum servico disponivel no momento.", "ENVIADA");
+                    estado.setEtapa("INICIAL");
+                    salvarEstado(estado);
+                    return;
+                }
+                respostaAutomaticaService.enviarListaServicos(canal, clienteId, whatsapp, servicos);
+            }
+            case "AGUARDANDO_PROFISSIONAL" -> {
+                String servicoId = estado.getDadosTemporarios().get("servicoId");
+                Servico servico = servicoId == null ? null : servicoRepository.findById(servicoId).orElse(null);
+                if (servico == null) {
+                    estado.setEtapa("INICIAL");
+                    salvarEstado(estado);
+                    respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp, estado.getEstabelecimentoId());
+                    return;
+                }
+                List<Profissional> profissionais = profissionalRepository
+                    .findByEstabelecimentoId(estado.getEstabelecimentoId())
+                    .stream()
+                    .filter(p -> p.isAtivo() && p.getServicoIds() != null && p.getServicoIds().contains(servico.getId()))
+                    .toList();
+                if (profissionais.isEmpty()) {
+                    estado.setEtapa("INICIAL");
+                    salvarEstado(estado);
+                    respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                        "Desculpe, nenhum profissional disponivel para este servico.", "ENVIADA");
+                    return;
+                }
+                respostaAutomaticaService.enviarListaProfissionais(canal, clienteId, whatsapp, servico.getNome(), profissionais);
+            }
+            case "AGUARDANDO_HORARIO" -> {
+                String servicoId = estado.getDadosTemporarios().get("servicoId");
+                String profissionalId = estado.getDadosTemporarios().get("profissionalId");
+                Servico servico = servicoId == null ? null : servicoRepository.findById(servicoId).orElse(null);
+                Profissional profissional = profissionalId == null ? null : profissionalRepository.findById(profissionalId).orElse(null);
+                if (servico == null || profissional == null) {
+                    estado.setEtapa("INICIAL");
+                    salvarEstado(estado);
+                    respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp, estado.getEstabelecimentoId());
+                    return;
+                }
+                List<LocalDateTime> horarios = gerarHorariosDisponiveis(estado.getEstabelecimentoId(), profissional, servico.getTempoExecucaoMinutos());
+                if (horarios.isEmpty()) {
+                    estado.setEtapa("INICIAL");
+                    salvarEstado(estado);
+                    respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                        "Nenhum horario disponivel. Tente novamente mais tarde.", "ENVIADA");
+                    return;
+                }
+                estado.getDadosTemporarios().put("horariosDisponiveisCount", String.valueOf(horarios.size()));
+                salvarEstado(estado);
+                respostaAutomaticaService.enviarListaHorarios(canal, clienteId, whatsapp, profissional.getNome(), horarios);
+            }
+            case "AGUARDANDO_REAGENDAMENTO_HORARIO" -> {
+                String servicoId = estado.getDadosTemporarios().get("servicoId");
+                String profissionalId = estado.getDadosTemporarios().get("profissionalId");
+                Servico servico = servicoId == null ? null : servicoRepository.findById(servicoId).orElse(null);
+                Profissional profissional = profissionalId == null ? null : profissionalRepository.findById(profissionalId).orElse(null);
+                if (servico == null || profissional == null) {
+                    estado.setEtapa("INICIAL");
+                    salvarEstado(estado);
+                    respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp, estado.getEstabelecimentoId());
+                    return;
+                }
+                List<LocalDateTime> horarios = gerarHorariosDisponiveis(estado.getEstabelecimentoId(), profissional, servico.getTempoExecucaoMinutos());
+                if (horarios.isEmpty()) {
+                    estado.setEtapa("INICIAL");
+                    salvarEstado(estado);
+                    respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                        "Nenhum horario disponivel para reagendamento.", "ENVIADA");
+                    return;
+                }
+                estado.getDadosTemporarios().put("horariosDisponiveisCount", String.valueOf(horarios.size()));
+                salvarEstado(estado);
+                respostaAutomaticaService.enviarListaHorarios(canal, clienteId, whatsapp, profissional.getNome(), horarios);
+            }
+            default -> respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp, estado.getEstabelecimentoId());
+        }
     }
 
     private boolean horarioDisponivelParaProfissional(String estabelecimentoId,
@@ -500,6 +652,11 @@ public class WhatsAppFluxoAgendamentoService {
     private void limparEstado(ConversaEstado estado) {
         estado.setEtapa("INICIAL");
         estado.setDadosTemporarios(new HashMap<>());
+        salvarEstado(estado);
+    }
+
+    private void salvarEstado(ConversaEstado estado) {
+        estado.setUltimaAtualizacao(LocalDateTime.now());
         conversaEstadoRepository.save(estado);
     }
 
