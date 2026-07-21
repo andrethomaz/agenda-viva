@@ -104,7 +104,7 @@ public class WhatsAppFluxoAgendamentoService {
         }
 
         switch (etapa) {
-            case "INICIAL" -> processarMenuPrincipal(estado, canal, clienteId, nomeCliente, whatsapp, opcao);
+            case "INICIAL" -> processarMenuPrincipal(estado, canal, clienteId, whatsapp, opcao);
             case "AGUARDANDO_SERVICO" -> processarSelecaoServico(estado, canal, clienteId, whatsapp, opcao);
             case "AGUARDANDO_PROFISSIONAL" -> processarSelecaoProfissional(estado, canal, clienteId, whatsapp, opcao);
             case "AGUARDANDO_HORARIO" -> processarSelecaoHorario(estado, canal, clienteId, whatsapp, opcao);
