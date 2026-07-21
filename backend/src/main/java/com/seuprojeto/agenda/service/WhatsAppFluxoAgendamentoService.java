@@ -115,7 +115,7 @@ public class WhatsAppFluxoAgendamentoService {
     }
 
     private void processarMenuPrincipal(ConversaEstado estado, WhatsAppCanal canal, String clienteId,
-                                        String nomeCliente, String whatsapp, int opcao) {
+                                        String whatsapp, int opcao) {
         switch (opcao) {
             case 1 -> {
                 // Agendar horário
@@ -163,6 +163,7 @@ public class WhatsAppFluxoAgendamentoService {
 
                 List<LocalDateTime> horariosExibidos = gerarHorariosDisponiveis(
                         estado.getEstabelecimentoId(),
+                        clienteId,
                         profissionalAtual,
                         servicoAtual.getTempoExecucaoMinutos()
                 );
@@ -261,7 +262,7 @@ public class WhatsAppFluxoAgendamentoService {
             .findByEstabelecimentoId(estado.getEstabelecimentoId())
             .stream()
             .filter(p -> p.isAtivo() && p.getServicoIds() != null && p.getServicoIds().contains(servicoId))
-            .collect(Collectors.toList());
+            .toList();
 
         if (opcao < 1 || opcao > profissionais.size()) {
             respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
@@ -285,6 +286,7 @@ public class WhatsAppFluxoAgendamentoService {
         // Gera horarios considerando: hoje+proximo dia, janela minima de 30 min e regras de paralelismo
         List<LocalDateTime> horariosExibidos = gerarHorariosDisponiveis(
             estado.getEstabelecimentoId(),
+            clienteId,
             profissionalEscolhido,
             servico.getTempoExecucaoMinutos()
         );
@@ -327,6 +329,7 @@ public class WhatsAppFluxoAgendamentoService {
 
         List<LocalDateTime> horarios = gerarHorariosDisponiveis(
             estado.getEstabelecimentoId(),
+            clienteId,
             profissional,
             servico.getTempoExecucaoMinutos()
         );
@@ -408,7 +411,12 @@ public class WhatsAppFluxoAgendamentoService {
             return;
         }
 
-        List<LocalDateTime> horarios = gerarHorariosDisponiveis(estado.getEstabelecimentoId(), profissional, servico.getTempoExecucaoMinutos());
+        List<LocalDateTime> horarios = gerarHorariosDisponiveis(
+            estado.getEstabelecimentoId(),
+            clienteId,
+            profissional,
+            servico.getTempoExecucaoMinutos()
+        );
         if (opcao > horarios.size()) {
             respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
                     "Horario nao disponivel.", "ENVIADA");
@@ -432,7 +440,10 @@ public class WhatsAppFluxoAgendamentoService {
         limparEstado(estado);
     }
 
-    private List<LocalDateTime> gerarHorariosDisponiveis(String estabelecimentoId, Profissional profissional, int duracaoMinutos) {
+    private List<LocalDateTime> gerarHorariosDisponiveis(String estabelecimentoId,
+                                                         String clienteId,
+                                                         Profissional profissional,
+                                                         int duracaoMinutos) {
         List<LocalDateTime> horarios = new ArrayList<>();
         LocalDateTime agora = LocalDateTime.now();
         LocalDateTime inicioMinimo = alinharParaSlot(agora.plusMinutes(JANELA_MINIMA_MINUTOS));
@@ -477,7 +488,7 @@ public class WhatsAppFluxoAgendamentoService {
                     continue;
                 }
 
-                if (horarioDisponivelParaProfissional(estabelecimentoId, profissional, dateTime, fimSlot)) {
+                if (horarioDisponivelParaAgendamento(estabelecimentoId, clienteId, profissional, dateTime, fimSlot)) {
                     horarios.add(dateTime);
                 }
 
@@ -548,7 +559,12 @@ public class WhatsAppFluxoAgendamentoService {
                     respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp, estado.getEstabelecimentoId());
                     return;
                 }
-                List<LocalDateTime> horarios = gerarHorariosDisponiveis(estado.getEstabelecimentoId(), profissional, servico.getTempoExecucaoMinutos());
+                List<LocalDateTime> horarios = gerarHorariosDisponiveis(
+                    estado.getEstabelecimentoId(),
+                    clienteId,
+                    profissional,
+                    servico.getTempoExecucaoMinutos()
+                );
                 if (horarios.isEmpty()) {
                     estado.setEtapa("INICIAL");
                     salvarEstado(estado);
@@ -571,7 +587,12 @@ public class WhatsAppFluxoAgendamentoService {
                     respostaAutomaticaService.enviarMenuPrincipal(canal, clienteId, nomeCliente, whatsapp, estado.getEstabelecimentoId());
                     return;
                 }
-                List<LocalDateTime> horarios = gerarHorariosDisponiveis(estado.getEstabelecimentoId(), profissional, servico.getTempoExecucaoMinutos());
+                List<LocalDateTime> horarios = gerarHorariosDisponiveis(
+                    estado.getEstabelecimentoId(),
+                    clienteId,
+                    profissional,
+                    servico.getTempoExecucaoMinutos()
+                );
                 if (horarios.isEmpty()) {
                     estado.setEtapa("INICIAL");
                     salvarEstado(estado);
@@ -587,11 +608,12 @@ public class WhatsAppFluxoAgendamentoService {
         }
     }
 
-    private boolean horarioDisponivelParaProfissional(String estabelecimentoId,
-                                                      Profissional profissional,
-                                                      LocalDateTime inicio,
-                                                      LocalDateTime fim) {
-        List<Agendamento> conflitos = agendamentoRepository
+    private boolean horarioDisponivelParaAgendamento(String estabelecimentoId,
+                                                     String clienteId,
+                                                     Profissional profissional,
+                                                     LocalDateTime inicio,
+                                                     LocalDateTime fim) {
+        List<Agendamento> conflitosProfissional = agendamentoRepository
             .findByEstabelecimentoIdAndProfissionalIdAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
                 estabelecimentoId,
                 profissional.getId(),
@@ -603,10 +625,25 @@ public class WhatsAppFluxoAgendamentoService {
             .toList();
 
         if (!profissional.isPermiteParalelismo()) {
-            return conflitos.isEmpty();
+            if (!conflitosProfissional.isEmpty()) {
+                return false;
+            }
+        } else if (conflitosProfissional.size() >= LIMITE_PARALELISMO) {
+            return false;
         }
 
-        return conflitos.size() < LIMITE_PARALELISMO;
+        List<Agendamento> conflitosCliente = agendamentoRepository
+            .findByEstabelecimentoIdAndClienteIdAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
+                estabelecimentoId,
+                clienteId,
+                fim,
+                inicio
+            )
+            .stream()
+            .filter(a -> STATUS_ATIVOS.contains(a.getStatus()))
+            .toList();
+
+        return conflitosCliente.isEmpty();
     }
 
     private LocalDateTime alinharParaSlot(LocalDateTime dataHora) {
