@@ -4,6 +4,7 @@ import com.seuprojeto.agenda.exception.BusinessException;
 import com.seuprojeto.agenda.model.*;
 import com.seuprojeto.agenda.repository.AgendamentoRepository;
 import com.seuprojeto.agenda.repository.HorarioFuncionamentoRepository;
+import com.seuprojeto.agenda.repository.TravaAgendaRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,10 +24,14 @@ public class DisponibilidadeService {
 
     private final HorarioFuncionamentoRepository horarioFuncionamentoRepository;
     private final AgendamentoRepository agendamentoRepository;
+    private final TravaAgendaRepository travaAgendaRepository;
 
-    public DisponibilidadeService(HorarioFuncionamentoRepository horarioFuncionamentoRepository, AgendamentoRepository agendamentoRepository) {
+    public DisponibilidadeService(HorarioFuncionamentoRepository horarioFuncionamentoRepository,
+                                  AgendamentoRepository agendamentoRepository,
+                                  TravaAgendaRepository travaAgendaRepository) {
         this.horarioFuncionamentoRepository = horarioFuncionamentoRepository;
         this.agendamentoRepository = agendamentoRepository;
+        this.travaAgendaRepository = travaAgendaRepository;
     }
 
     public LocalDateTime validarECalcularFim(Agendamento agendamento, Profissional profissional, Servico servico) {
@@ -34,9 +39,22 @@ public class DisponibilidadeService {
         LocalDateTime fim = inicio.plusMinutes(servico.getTempoExecucaoMinutos());
 
         validarDentroDoFuncionamento(agendamento.getEstabelecimentoId(), inicio, fim);
+        validarSemTrava(agendamento.getEstabelecimentoId(), inicio, fim);
         validarConflitos(agendamento, profissional, inicio, fim);
 
         return fim;
+    }
+
+    public boolean possuiTravaNoPeriodo(String estabelecimentoId, LocalDateTime inicio, LocalDateTime fim) {
+        return !travaAgendaRepository
+                .findByEstabelecimentoIdAndInicioLessThanAndFimGreaterThan(estabelecimentoId, fim, inicio)
+                .isEmpty();
+    }
+
+    public void validarSemTrava(String estabelecimentoId, LocalDateTime inicio, LocalDateTime fim) {
+        if (possuiTravaNoPeriodo(estabelecimentoId, inicio, fim)) {
+            throw new BusinessException("Periodo indisponivel: a agenda do estabelecimento esta travada para este horario");
+        }
     }
 
     private void validarDentroDoFuncionamento(String estabelecimentoId, LocalDateTime inicio, LocalDateTime fim) {

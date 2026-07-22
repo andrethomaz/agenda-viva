@@ -756,6 +756,10 @@ public class WhatsAppFluxoAgendamentoService {
                                                      LocalDateTime inicio,
                                                      LocalDateTime fim,
                                                      boolean considerarConflitoCliente) {
+        if (disponibilidadeService.possuiTravaNoPeriodo(estabelecimentoId, inicio, fim)) {
+            return false;
+        }
+
         List<Agendamento> conflitosProfissional = agendamentoRepository
             .findByEstabelecimentoIdAndProfissionalIdAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
                 estabelecimentoId,

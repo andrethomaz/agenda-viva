@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
@@ -66,6 +65,10 @@ public class OfertaRemanejamentoService {
     }
 
     public void iniciarFluxoComJanela(Agendamento origem, LocalDateTime janelaInicio, LocalDateTime janelaFim) {
+        if (disponibilidadeService.possuiTravaNoPeriodo(origem.getEstabelecimentoId(), janelaInicio, janelaFim)) {
+            return;
+        }
+
         long janelaMinutos = ChronoUnit.MINUTES.between(janelaInicio, janelaFim);
         List<Agendamento> candidatos = agendamentoRepository
                 .findByEstabelecimentoIdAndStatusInAndDataHoraInicioGreaterThanEqualOrderByDataHoraInicioAsc(
