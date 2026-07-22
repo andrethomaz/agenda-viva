@@ -170,12 +170,14 @@ public class WhatsAppRespostaAutomaticaService {
                                               String nomeProcedimento, String nomeProfissional) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         String mensagem = String.format("""
-            "🤖 Cancelamento confirmado! ✅
-            "📍 Estabelecimento: %s
-            "🩺 Procedimento: %s
-            "👨‍⚕️ Profissional: %s
-            "📅 Data e hora canceladas: %s
-            "Seu agendamento foi cancelado com sucesso.
+            🤖 Cancelamento confirmado! ✅
+            
+            📍 Estabelecimento: %s
+            🩺 Procedimento: %s
+            👨‍⚕️ Profissional: %s
+            📅 Data e hora canceladas: %s
+            
+            Seu agendamento foi cancelado com sucesso. 👍
             """,
             nomeEstabelecimento,
             nomeProcedimento,
