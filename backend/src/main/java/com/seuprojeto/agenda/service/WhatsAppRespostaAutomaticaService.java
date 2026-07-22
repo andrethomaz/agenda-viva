@@ -37,10 +37,13 @@ public class WhatsAppRespostaAutomaticaService {
         }
 
         String mensagem = String.format("""
-            🤖 Olá %s! 👋 Espero que esteja bem 😀
-            🖥️ Sou o sistema de Agenda-viva do(a) %s.
+            🤖 
+            Olá %s! 👋 
+            Espero que esteja bem 😀
+            
+            🖥️ Sou o sistema de Agenda-viva do(a) %s
+            
             💡 Posso te ajudar a:
-
             1️⃣ - Agendar horario 🕒
             2️⃣ - Remarcar 🔁
             3️⃣ - Cancelar 🚫
@@ -74,7 +77,7 @@ public class WhatsAppRespostaAutomaticaService {
             Profissional p = profissionais.get(i);
             sb.append(String.format("%d - %s\n", i + 1, p.getNome()));
         });
-        sb.append("\n0 - Falar com atendente 👩‍🚀");
+        sb.append("\n0️⃣ - Falar com atendente 👩‍🚀");
         messageService.enviarTexto(canal, clienteId, whatsapp, sb.toString().trim(), "ENVIADA");
     }
 
@@ -90,8 +93,18 @@ public class WhatsAppRespostaAutomaticaService {
         messageService.enviarTexto(canal, clienteId, whatsapp, sb.toString().trim(), "ENVIADA");
     }
 
+    public void enviarListaAgendamentos(WhatsAppCanal canal, String clienteId, String whatsapp,
+                                        String titulo, List<String> agendamentosFormatados) {
+        StringBuilder sb = new StringBuilder(titulo).append("\n\n");
+        IntStream.range(0, agendamentosFormatados.size()).forEach(i ->
+            sb.append(String.format("%d - %s\n", i + 1, agendamentosFormatados.get(i)))
+        );
+        sb.append("\n0️⃣ - Falar com atendente 👩‍🚀");
+        messageService.enviarTexto(canal, clienteId, whatsapp, sb.toString().trim(), "ENVIADA");
+    }
+
     public void enviarMenuAtendente(WhatsAppCanal canal, String clienteId, String whatsapp) {
-        String mensagem = "🤖 Voce escolheu falar com o atendente.\n\n"
+        String mensagem = "🤖 Voce escolheu falar com o atendente. A qualquer momento, escolha uma das opções abaixo para:\n\n"
             + "1️⃣ - Continuar de onde parei \uD83D\uDD1C \n"
             + "2️⃣ - Encerrar atendimento ⛔";
         messageService.enviarTexto(canal, clienteId, whatsapp, mensagem, "ENVIADA");
@@ -110,7 +123,7 @@ public class WhatsAppRespostaAutomaticaService {
             🤖 Agendamento confirmado! ✅
 
             📍 Estabelecimento: %s
-            🏥 Procedimento: %s
+            🩺 Procedimento: %s
             👨‍⚕️ Profissional: %s
             📅 Data e Hora: %s
 
@@ -131,14 +144,18 @@ public class WhatsAppRespostaAutomaticaService {
                                                Agendamento agendamento, String nomeEstabelecimento,
                                                String nomeProcedimento, String nomeProfissional) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-        String mensagem = String.format(
-            "🤖 Reagendamento confirmado! ✅\n\n" +
-            "📍 Estabelecimento: %s\n" +
-            "🏥 Procedimento: %s\n" +
-            "👨‍⚕️ Profissional: %s\n" +
-            "📅 Nova data e hora: %s\n\n" +
-            "Seu ID de agendamento: %s\n\n" +
-            "Obrigado por reagendar conosco! 🙏",
+        String mensagem = String.format("""
+            🤖 Reagendamento confirmado! ✅
+            
+            📍 Estabelecimento: %s
+            🩺 Procedimento: %s
+            👨‍⚕️ Profissional: %s
+            📅 *Nova* data e hora: %s
+            
+            Seu ID de agendamento: %s
+            
+            Obrigado por reagendar conosco! 🙏
+            """,
             nomeEstabelecimento,
             nomeProcedimento,
             nomeProfissional,
@@ -152,13 +169,14 @@ public class WhatsAppRespostaAutomaticaService {
                                               Agendamento agendamento, String nomeEstabelecimento,
                                               String nomeProcedimento, String nomeProfissional) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-        String mensagem = String.format(
-            "🤖 Cancelamento confirmado! ✅\n\n" +
-            "📍 Estabelecimento: %s\n" +
-            "🏥 Procedimento: %s\n" +
-            "👨‍⚕️ Profissional: %s\n" +
-            "📅 Data e hora canceladas: %s\n\n" +
-            "Seu agendamento foi cancelado com sucesso.",
+        String mensagem = String.format("""
+            "🤖 Cancelamento confirmado! ✅
+            "📍 Estabelecimento: %s
+            "🩺 Procedimento: %s
+            "👨‍⚕️ Profissional: %s
+            "📅 Data e hora canceladas: %s
+            "Seu agendamento foi cancelado com sucesso.
+            """,
             nomeEstabelecimento,
             nomeProcedimento,
             nomeProfissional,

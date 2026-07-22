@@ -108,6 +108,8 @@ public class WhatsAppFluxoAgendamentoService {
             case "AGUARDANDO_SERVICO" -> processarSelecaoServico(estado, canal, clienteId, whatsapp, opcao);
             case "AGUARDANDO_PROFISSIONAL" -> processarSelecaoProfissional(estado, canal, clienteId, whatsapp, opcao);
             case "AGUARDANDO_HORARIO" -> processarSelecaoHorario(estado, canal, clienteId, whatsapp, opcao);
+            case "AGUARDANDO_REAGENDAMENTO_AGENDAMENTO" -> processarSelecaoAgendamentoReagendamento(estado, canal, clienteId, whatsapp, opcao);
+            case "AGUARDANDO_CANCELAMENTO_AGENDAMENTO" -> processarSelecaoAgendamentoCancelamento(estado, canal, clienteId, whatsapp, opcao);
             case "AGUARDANDO_REAGENDAMENTO_HORARIO" -> processarSelecaoHorarioReagendamento(estado, canal, clienteId, whatsapp, opcao);
             case "ATENDENTE" -> processarMenuAtendente(estado, canal, clienteId, nomeCliente, whatsapp, opcao);
             default -> log.info("Etapa desconhecida: {}", etapa);
@@ -135,67 +137,36 @@ public class WhatsAppFluxoAgendamentoService {
                 respostaAutomaticaService.enviarListaServicos(canal, clienteId, whatsapp, servicos);
             }
             case 2 -> {
-                Agendamento agendamentoAtual = buscarAgendamentoAtivoAtual(estado.getEstabelecimentoId(), clienteId);
-                if (agendamentoAtual == null) {
+                List<Agendamento> agendamentosAtivos = buscarAgendamentosAtivosDoCliente(estado.getEstabelecimentoId(), clienteId);
+                if (agendamentosAtivos.isEmpty()) {
                     respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
-                            "Nao encontrei um agendamento ativo para reagendar.", "ENVIADA");
+                            "Nao encontrei agendamentos ativos para reagendar.", "ENVIADA");
                     return;
                 }
 
-                estado.setEtapa("AGUARDANDO_REAGENDAMENTO_HORARIO");
                 estado.setDadosTemporarios(new HashMap<>());
-                estado.getDadosTemporarios().put("agendamentoId", agendamentoAtual.getId());
-                estado.getDadosTemporarios().put("profissionalId", agendamentoAtual.getProfissionalId());
-                estado.getDadosTemporarios().put("servicoId", agendamentoAtual.getServicoId());
-                estado.getDadosTemporarios().put("profissionalNome", profissionalRepository.findById(agendamentoAtual.getProfissionalId())
-                        .map(Profissional::getNome).orElse("Profissional"));
+                estado.setEtapa("AGUARDANDO_REAGENDAMENTO_AGENDAMENTO");
+                registrarAgendamentosParaSelecao(estado, agendamentosAtivos);
                 salvarEstado(estado);
-
-                Servico servicoAtual = servicoRepository.findById(agendamentoAtual.getServicoId()).orElse(null);
-                Profissional profissionalAtual = profissionalRepository.findById(agendamentoAtual.getProfissionalId()).orElse(null);
-                if (servicoAtual == null || profissionalAtual == null) {
-                    respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
-                            "Nao foi possivel carregar os dados do agendamento para reagendamento.", "ENVIADA");
-                    estado.setEtapa("INICIAL");
-                    salvarEstado(estado);
-                    return;
-                }
-
-                List<LocalDateTime> horariosExibidos = gerarHorariosDisponiveis(
-                        estado.getEstabelecimentoId(),
-                        clienteId,
-                        profissionalAtual,
-                        servicoAtual.getTempoExecucaoMinutos()
-                );
-
-                if (horariosExibidos.isEmpty()) {
-                    respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
-                            "Nenhum horario disponivel para reagendamento.", "ENVIADA");
-                    estado.setEtapa("INICIAL");
-                    salvarEstado(estado);
-                    return;
-                }
-
-                respostaAutomaticaService.enviarListaHorarios(canal, clienteId, whatsapp, profissionalAtual.getNome(), horariosExibidos);
-                estado.getDadosTemporarios().put("horariosDisponiveisCount", String.valueOf(horariosExibidos.size()));
-                salvarEstado(estado);
+                respostaAutomaticaService.enviarListaAgendamentos(canal, clienteId, whatsapp,
+                    "Escolha qual agendamento voce deseja reagendar:",
+                    montarLinhasAgendamento(agendamentosAtivos));
             }
             case 3 -> {
-                Agendamento agendamentoAtual = buscarAgendamentoAtivoAtual(estado.getEstabelecimentoId(), clienteId);
-                if (agendamentoAtual == null) {
+                List<Agendamento> agendamentosAtivos = buscarAgendamentosAtivosDoCliente(estado.getEstabelecimentoId(), clienteId);
+                if (agendamentosAtivos.isEmpty()) {
                     respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
-                            "Nao encontrei um agendamento ativo para cancelar.", "ENVIADA");
+                            "Nao encontrei agendamentos ativos para cancelar.", "ENVIADA");
                     return;
                 }
 
-                Agendamento cancelado = agendamentoService.cancelarParaWhatsApp(agendamentoAtual.getId(), "Cancelamento solicitado pelo cliente via WhatsApp");
-                String nomeEstabelecimento = obterNomeEstabelecimento(estado.getEstabelecimentoId());
-                String nomeServico = servicoRepository.findById(cancelado.getServicoId()).map(Servico::getNome).orElse("Serviço");
-                String nomeProfissional = profissionalRepository.findById(cancelado.getProfissionalId()).map(Profissional::getNome).orElse("Profissional");
-
-                respostaAutomaticaService.enviarConfirmacaoCancelamento(canal, clienteId, whatsapp, cancelado,
-                        nomeEstabelecimento, nomeServico, nomeProfissional);
-                limparEstado(estado);
+                estado.setDadosTemporarios(new HashMap<>());
+                estado.setEtapa("AGUARDANDO_CANCELAMENTO_AGENDAMENTO");
+                registrarAgendamentosParaSelecao(estado, agendamentosAtivos);
+                salvarEstado(estado);
+                respostaAutomaticaService.enviarListaAgendamentos(canal, clienteId, whatsapp,
+                    "Escolha qual agendamento voce deseja cancelar:",
+                    montarLinhasAgendamento(agendamentosAtivos));
             }
             default -> respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
                 "Opção inválida. Por favor, escolha 1, 2 ou 3.", "ENVIADA");
@@ -218,7 +189,111 @@ public class WhatsAppFluxoAgendamentoService {
             return;
         }
         respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
-            "Opcao invalida. Escolha 1 para continuar ou 2 para encerrar.", "ENVIADA");
+            "Mensagem encaminhada para o atendente. Quando quiser voltar ao menu automatico, envie 1. Para encerrar, envie 2.", "ENVIADA");
+    }
+
+    private void processarSelecaoAgendamentoReagendamento(ConversaEstado estado, WhatsAppCanal canal, String clienteId,
+                                                          String whatsapp, int opcao) {
+        int total = Integer.parseInt(estado.getDadosTemporarios().getOrDefault("agendamentosDisponiveisCount", "0"));
+        if (opcao < 1 || opcao > total) {
+            respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                "Opcao invalida. Escolha um numero da lista.", "ENVIADA");
+            return;
+        }
+
+        String agendamentoId = estado.getDadosTemporarios().get("agendamentoId_" + opcao);
+        if (agendamentoId == null) {
+            respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                "Nao foi possivel identificar o agendamento selecionado.", "ENVIADA");
+            return;
+        }
+
+        Agendamento agendamentoAtual = agendamentoService.findById(agendamentoId);
+        if (!STATUS_ATIVOS.contains(agendamentoAtual.getStatus())) {
+            respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                "Esse agendamento nao esta mais ativo.", "ENVIADA");
+            estado.setEtapa("INICIAL");
+            salvarEstado(estado);
+            return;
+        }
+
+        Servico servicoAtual = servicoRepository.findById(agendamentoAtual.getServicoId()).orElse(null);
+        Profissional profissionalAtual = profissionalRepository.findById(agendamentoAtual.getProfissionalId()).orElse(null);
+        if (servicoAtual == null || profissionalAtual == null) {
+            respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                "Nao foi possivel carregar os dados do agendamento para reagendamento.", "ENVIADA");
+            estado.setEtapa("INICIAL");
+            salvarEstado(estado);
+            return;
+        }
+
+        estado.setEtapa("AGUARDANDO_REAGENDAMENTO_HORARIO");
+        estado.getDadosTemporarios().put("agendamentoId", agendamentoAtual.getId());
+        estado.getDadosTemporarios().put("profissionalId", agendamentoAtual.getProfissionalId());
+        estado.getDadosTemporarios().put("servicoId", agendamentoAtual.getServicoId());
+        estado.getDadosTemporarios().put("profissionalNome", profissionalAtual.getNome());
+
+        List<LocalDateTime> horariosExibidos = gerarHorariosDisponiveis(
+            estado.getEstabelecimentoId(),
+            clienteId,
+            profissionalAtual,
+            servicoAtual.getTempoExecucaoMinutos()
+        );
+
+        if (horariosExibidos.isEmpty()) {
+            respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                mensagemSemHorariosDisponiveis(
+                    estado.getEstabelecimentoId(),
+                    profissionalAtual,
+                    servicoAtual.getTempoExecucaoMinutos(),
+                    true
+                ), "ENVIADA");
+            estado.setEtapa("INICIAL");
+            salvarEstado(estado);
+            return;
+        }
+
+        estado.getDadosTemporarios().put("horariosDisponiveisCount", String.valueOf(horariosExibidos.size()));
+        salvarEstado(estado);
+        respostaAutomaticaService.enviarListaHorarios(canal, clienteId, whatsapp, profissionalAtual.getNome(), horariosExibidos);
+    }
+
+    private void processarSelecaoAgendamentoCancelamento(ConversaEstado estado, WhatsAppCanal canal, String clienteId,
+                                                         String whatsapp, int opcao) {
+        int total = Integer.parseInt(estado.getDadosTemporarios().getOrDefault("agendamentosDisponiveisCount", "0"));
+        if (opcao < 1 || opcao > total) {
+            respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                "Opcao invalida. Escolha um numero da lista.", "ENVIADA");
+            return;
+        }
+
+        String agendamentoId = estado.getDadosTemporarios().get("agendamentoId_" + opcao);
+        if (agendamentoId == null) {
+            respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                "Nao foi possivel identificar o agendamento selecionado.", "ENVIADA");
+            return;
+        }
+
+        Agendamento agendamentoAtual = agendamentoService.findById(agendamentoId);
+        if (!STATUS_ATIVOS.contains(agendamentoAtual.getStatus())) {
+            respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                "Esse agendamento nao esta mais ativo.", "ENVIADA");
+            estado.setEtapa("INICIAL");
+            salvarEstado(estado);
+            return;
+        }
+
+        Agendamento cancelado = agendamentoService.cancelarParaWhatsApp(
+            agendamentoAtual.getId(),
+            "Cancelamento solicitado pelo cliente via WhatsApp"
+        );
+        String nomeEstabelecimento = obterNomeEstabelecimento(estado.getEstabelecimentoId());
+        String nomeServico = servicoRepository.findById(cancelado.getServicoId()).map(Servico::getNome).orElse("Servico");
+        String nomeProfissional = profissionalRepository.findById(cancelado.getProfissionalId()).map(Profissional::getNome).orElse("Profissional");
+
+        respostaAutomaticaService.enviarConfirmacaoCancelamento(canal, clienteId, whatsapp, cancelado,
+            nomeEstabelecimento, nomeServico, nomeProfissional);
+        limparEstado(estado);
     }
 
     private void processarSelecaoServico(ConversaEstado estado, WhatsAppCanal canal, String clienteId,
@@ -293,7 +368,12 @@ public class WhatsAppFluxoAgendamentoService {
 
         if (horariosExibidos.isEmpty()) {
             respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
-                "Nenhum horário disponível. Tente novamente mais tarde.", "ENVIADA");
+                mensagemSemHorariosDisponiveis(
+                    estado.getEstabelecimentoId(),
+                    profissionalEscolhido,
+                    servico.getTempoExecucaoMinutos(),
+                    false
+                ), "ENVIADA");
             estado.setEtapa("INICIAL");
         } else {
             estado.setEtapa("AGUARDANDO_HORARIO");
@@ -444,6 +524,20 @@ public class WhatsAppFluxoAgendamentoService {
                                                          String clienteId,
                                                          Profissional profissional,
                                                          int duracaoMinutos) {
+        return gerarHorariosDisponiveisInterno(estabelecimentoId, clienteId, profissional, duracaoMinutos, true);
+    }
+
+    private List<LocalDateTime> gerarHorariosDisponiveisParaProfissional(String estabelecimentoId,
+                                                                         Profissional profissional,
+                                                                         int duracaoMinutos) {
+        return gerarHorariosDisponiveisInterno(estabelecimentoId, null, profissional, duracaoMinutos, false);
+    }
+
+    private List<LocalDateTime> gerarHorariosDisponiveisInterno(String estabelecimentoId,
+                                                                 String clienteId,
+                                                                 Profissional profissional,
+                                                                 int duracaoMinutos,
+                                                                 boolean considerarConflitoCliente) {
         List<LocalDateTime> horarios = new ArrayList<>();
         LocalDateTime agora = LocalDateTime.now();
         LocalDateTime inicioMinimo = alinharParaSlot(agora.plusMinutes(JANELA_MINIMA_MINUTOS));
@@ -488,7 +582,14 @@ public class WhatsAppFluxoAgendamentoService {
                     continue;
                 }
 
-                if (horarioDisponivelParaAgendamento(estabelecimentoId, clienteId, profissional, dateTime, fimSlot)) {
+                if (horarioDisponivelParaAgendamento(
+                    estabelecimentoId,
+                    clienteId,
+                    profissional,
+                    dateTime,
+                    fimSlot,
+                    considerarConflitoCliente
+                )) {
                     horarios.add(dateTime);
                 }
 
@@ -569,12 +670,47 @@ public class WhatsAppFluxoAgendamentoService {
                     estado.setEtapa("INICIAL");
                     salvarEstado(estado);
                     respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
-                        "Nenhum horario disponivel. Tente novamente mais tarde.", "ENVIADA");
+                        mensagemSemHorariosDisponiveis(
+                            estado.getEstabelecimentoId(),
+                            profissional,
+                            servico.getTempoExecucaoMinutos(),
+                            false
+                        ), "ENVIADA");
                     return;
                 }
                 estado.getDadosTemporarios().put("horariosDisponiveisCount", String.valueOf(horarios.size()));
                 salvarEstado(estado);
                 respostaAutomaticaService.enviarListaHorarios(canal, clienteId, whatsapp, profissional.getNome(), horarios);
+            }
+            case "AGUARDANDO_REAGENDAMENTO_AGENDAMENTO" -> {
+                List<Agendamento> agendamentosAtivos = buscarAgendamentosAtivosDoCliente(estado.getEstabelecimentoId(), clienteId);
+                if (agendamentosAtivos.isEmpty()) {
+                    estado.setEtapa("INICIAL");
+                    salvarEstado(estado);
+                    respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                        "Nao ha mais agendamentos ativos para reagendar.", "ENVIADA");
+                    return;
+                }
+                registrarAgendamentosParaSelecao(estado, agendamentosAtivos);
+                salvarEstado(estado);
+                respostaAutomaticaService.enviarListaAgendamentos(canal, clienteId, whatsapp,
+                    "Escolha qual agendamento voce deseja reagendar:",
+                    montarLinhasAgendamento(agendamentosAtivos));
+            }
+            case "AGUARDANDO_CANCELAMENTO_AGENDAMENTO" -> {
+                List<Agendamento> agendamentosAtivos = buscarAgendamentosAtivosDoCliente(estado.getEstabelecimentoId(), clienteId);
+                if (agendamentosAtivos.isEmpty()) {
+                    estado.setEtapa("INICIAL");
+                    salvarEstado(estado);
+                    respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
+                        "Nao ha mais agendamentos ativos para cancelar.", "ENVIADA");
+                    return;
+                }
+                registrarAgendamentosParaSelecao(estado, agendamentosAtivos);
+                salvarEstado(estado);
+                respostaAutomaticaService.enviarListaAgendamentos(canal, clienteId, whatsapp,
+                    "Escolha qual agendamento voce deseja cancelar:",
+                    montarLinhasAgendamento(agendamentosAtivos));
             }
             case "AGUARDANDO_REAGENDAMENTO_HORARIO" -> {
                 String servicoId = estado.getDadosTemporarios().get("servicoId");
@@ -597,7 +733,12 @@ public class WhatsAppFluxoAgendamentoService {
                     estado.setEtapa("INICIAL");
                     salvarEstado(estado);
                     respostaAutomaticaService.enviarTexto(canal, clienteId, whatsapp,
-                        "Nenhum horario disponivel para reagendamento.", "ENVIADA");
+                        mensagemSemHorariosDisponiveis(
+                            estado.getEstabelecimentoId(),
+                            profissional,
+                            servico.getTempoExecucaoMinutos(),
+                            true
+                        ), "ENVIADA");
                     return;
                 }
                 estado.getDadosTemporarios().put("horariosDisponiveisCount", String.valueOf(horarios.size()));
@@ -612,7 +753,8 @@ public class WhatsAppFluxoAgendamentoService {
                                                      String clienteId,
                                                      Profissional profissional,
                                                      LocalDateTime inicio,
-                                                     LocalDateTime fim) {
+                                                     LocalDateTime fim,
+                                                     boolean considerarConflitoCliente) {
         List<Agendamento> conflitosProfissional = agendamentoRepository
             .findByEstabelecimentoIdAndProfissionalIdAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
                 estabelecimentoId,
@@ -632,6 +774,10 @@ public class WhatsAppFluxoAgendamentoService {
             return false;
         }
 
+        if (!considerarConflitoCliente) {
+            return true;
+        }
+
         List<Agendamento> conflitosCliente = agendamentoRepository
             .findByEstabelecimentoIdAndClienteIdAndDataHoraInicioLessThanAndDataHoraFimGreaterThan(
                 estabelecimentoId,
@@ -646,6 +792,24 @@ public class WhatsAppFluxoAgendamentoService {
         return conflitosCliente.isEmpty();
     }
 
+    private String mensagemSemHorariosDisponiveis(String estabelecimentoId,
+                                                  Profissional profissional,
+                                                  int duracaoMinutos,
+                                                  boolean reagendamento) {
+        List<LocalDateTime> horariosDoProfissional = gerarHorariosDisponiveisParaProfissional(
+            estabelecimentoId,
+            profissional,
+            duracaoMinutos
+        );
+        if (!horariosDoProfissional.isEmpty()) {
+            return "Voce ja possui agendamento em um ou mais desses horarios, por isso eles nao foram exibidos.";
+        }
+        if (reagendamento) {
+            return "Nenhum horario disponivel para reagendamento.";
+        }
+        return "Nenhum horario disponivel. Tente novamente mais tarde.";
+    }
+
     private LocalDateTime alinharParaSlot(LocalDateTime dataHora) {
         LocalDateTime base = dataHora.withSecond(0).withNano(0);
         int minuto = base.getMinute();
@@ -656,14 +820,34 @@ public class WhatsAppFluxoAgendamentoService {
         return base.plusMinutes(30 - resto);
     }
 
-    private Agendamento buscarAgendamentoAtivoAtual(String estabelecimentoId, String clienteId) {
+    private List<Agendamento> buscarAgendamentosAtivosDoCliente(String estabelecimentoId, String clienteId) {
         LocalDateTime agora = LocalDateTime.now();
         return agendamentoRepository.findByEstabelecimentoIdAndClienteIdAndDataHoraInicioAfterOrderByDataHoraInicioAsc(
                         estabelecimentoId, clienteId, agora)
                 .stream()
                 .filter(a -> STATUS_ATIVOS.contains(a.getStatus()))
-                .findFirst()
-                .orElse(null);
+                .toList();
+    }
+
+    private void registrarAgendamentosParaSelecao(ConversaEstado estado, List<Agendamento> agendamentos) {
+        estado.getDadosTemporarios().entrySet().removeIf(e -> e.getKey().startsWith("agendamentoId_"));
+        for (int i = 0; i < agendamentos.size(); i++) {
+            estado.getDadosTemporarios().put("agendamentoId_" + (i + 1), agendamentos.get(i).getId());
+        }
+        estado.getDadosTemporarios().put("agendamentosDisponiveisCount", String.valueOf(agendamentos.size()));
+    }
+
+    private List<String> montarLinhasAgendamento(List<Agendamento> agendamentos) {
+        return agendamentos.stream().map(agendamento -> {
+            String nomeServico = servicoRepository.findById(agendamento.getServicoId())
+                .map(Servico::getNome)
+                .orElse("Servico");
+            String nomeProfissional = profissionalRepository.findById(agendamento.getProfissionalId())
+                .map(Profissional::getNome)
+                .orElse("Profissional");
+            String dataHora = agendamento.getDataHoraInicio().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+            return String.format("%s - %s", dataHora, nomeServico + " / " + nomeProfissional);
+        }).toList();
     }
 
     private String obterNomeEstabelecimento(String estabelecimentoId) {
