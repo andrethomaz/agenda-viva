@@ -66,18 +66,23 @@ public class WhatsAppWebhookService {
         messageService.registrarRecebida(canal.getEstabelecimentoId(), cliente.getId(), canal.getId(), messageId, texto, new HashMap<>(payload.toSingleValueMap()));
         auditoriaService.registrar(canal.getEstabelecimentoId(), "MENSAGEM_RECEBIDA", "MensagemWhatsApp", messageId, "Mensagem recebida pelo webhook");
 
+        if (ofertaService.possuiOfertaPendente(cliente.getId())) {
+            if ("1".equals(texto) || "2".equals(texto)) {
+                try {
+                    ofertaService.processarRespostaCliente(cliente.getId(), texto);
+                } catch (RuntimeException ex) {
+                    messageService.enviarTexto(canal, cliente.getId(), cliente.getWhatsapp(), ex.getMessage(), "ENVIADA");
+                }
+            } else {
+                messageService.enviarTexto(canal, cliente.getId(), cliente.getWhatsapp(),
+                        "Voce possui uma oferta de remanejamento pendente. Responda 1 para aceitar ou 2 para recusar.", "ENVIADA");
+            }
+            return;
+        }
+
         // Chamar fluxo automático de agendamento
         fluxoAgendamentoService.processarResposta(canal.getEstabelecimentoId(), cliente.getId(), cliente.getNome(),
             cliente.getWhatsapp(), canal, texto);
-
-        // Legacy: manter compatibilidade com oferta remanejamento se necessário
-//        if ("1".equals(texto) || "2".equals(texto)) {
-//            try {
-//                ofertaService.processarRespostaCliente(cliente.getId(), texto);
-//            } catch (RuntimeException ex) {
-//                messageService.enviarTexto(canal, cliente.getId(), cliente.getWhatsapp(), ex.getMessage(), "ENVIADA");
-//            }
-//        }
     }
 
     public boolean validarAssinaturaTwilio(String requestUrl, MultiValueMap<String, String> payload, String signature) {

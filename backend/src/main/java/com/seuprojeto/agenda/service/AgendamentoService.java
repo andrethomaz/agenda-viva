@@ -117,6 +117,7 @@ public class AgendamentoService {
         Agendamento saved = repository.save(existing);
         registrarHistorico(saved, "CANCELAMENTO", motivo == null ? "Agendamento cancelado" : motivo);
         auditoriaService.registrar(saved.getEstabelecimentoId(), "CANCELAMENTO", "Agendamento", saved.getId(), "Agendamento cancelado via WhatsApp");
+        agendaVivaService.processarCancelamento(saved);
         return saved;
     }
 
@@ -129,6 +130,9 @@ public class AgendamentoService {
         Servico servico = servicoService.findById(existing.getServicoId());
         Profissional profissional = profissionalService.findById(existing.getProfissionalId());
 
+        LocalDateTime inicioAntigo = existing.getDataHoraInicio();
+        LocalDateTime fimAntigo = existing.getDataHoraFim();
+
         existing.setDataHoraInicio(novoInicio);
         existing.setDataHoraFim(disponibilidadeService.validarECalcularFim(existing, profissional, servico));
         existing.setStatus(AgendamentoStatus.REAGENDADO);
@@ -136,6 +140,7 @@ public class AgendamentoService {
         Agendamento saved = repository.save(existing);
         registrarHistorico(saved, "REAGENDAMENTO", "Agendamento reagendado via WhatsApp");
         auditoriaService.registrar(saved.getEstabelecimentoId(), "REAGENDAMENTO", "Agendamento", saved.getId(), "Agendamento reagendado via WhatsApp");
+        agendaVivaService.processarJanelaLiberada(saved, inicioAntigo, fimAntigo);
         return saved;
     }
 

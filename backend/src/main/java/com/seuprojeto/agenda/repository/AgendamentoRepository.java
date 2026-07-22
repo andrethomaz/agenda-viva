@@ -5,6 +5,7 @@ import com.seuprojeto.agenda.model.AgendamentoStatus;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface AgendamentoRepository extends MongoRepository<Agendamento, String> {
@@ -49,6 +50,12 @@ public interface AgendamentoRepository extends MongoRepository<Agendamento, Stri
     List<Agendamento> findByEstabelecimentoIdAndStatusAndDataHoraInicioAfterOrderByDataHoraInicioAsc(
             String estabelecimentoId,
             AgendamentoStatus status,
+            LocalDateTime dataHora
+    );
+
+    List<Agendamento> findByEstabelecimentoIdAndStatusInAndDataHoraInicioGreaterThanEqualOrderByDataHoraInicioAsc(
+            String estabelecimentoId,
+            Collection<AgendamentoStatus> statuses,
             LocalDateTime dataHora
     );
 }
