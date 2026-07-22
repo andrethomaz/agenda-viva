@@ -23,7 +23,8 @@ public class WhatsAppFluxoAgendamentoService {
     private static final Set<AgendamentoStatus> STATUS_ATIVOS = Set.of(
         AgendamentoStatus.AGENDADO,
         AgendamentoStatus.CONFIRMADO,
-        AgendamentoStatus.REAGENDADO
+        AgendamentoStatus.REAGENDADO,
+        AgendamentoStatus.REMANEJADO
     );
 
     private final ConversaEstadoRepository conversaEstadoRepository;
