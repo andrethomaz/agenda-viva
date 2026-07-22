@@ -37,9 +37,8 @@ public class WhatsAppRespostaAutomaticaService {
         }
 
         String mensagem = String.format("""
-            🤖 
-            Olá %s! 👋 
-            Espero que esteja bem 😀
+            🤖💬 Olá %s
+            Espero que esteja bem! 👋😀
             
             🖥️ Sou o sistema de Agenda-viva do(a) %s
             
@@ -104,7 +103,8 @@ public class WhatsAppRespostaAutomaticaService {
     }
 
     public void enviarMenuAtendente(WhatsAppCanal canal, String clienteId, String whatsapp) {
-        String mensagem = "🤖 Voce escolheu falar com o atendente. A qualquer momento, escolha uma das opções abaixo para:\n\n"
+        String mensagem = "🤖💬 Voce escolheu falar com o atendente. \n"
+            + "A qualquer momento, escolha uma das opções abaixo para:\n\n"
             + "1️⃣ - Continuar de onde parei \uD83D\uDD1C \n"
             + "2️⃣ - Encerrar atendimento ⛔";
         messageService.enviarTexto(canal, clienteId, whatsapp, mensagem, "ENVIADA");
@@ -112,7 +112,7 @@ public class WhatsAppRespostaAutomaticaService {
 
     public void enviarMensagemEncerramentoAtendimento(WhatsAppCanal canal, String clienteId, String whatsapp) {
         messageService.enviarTexto(canal, clienteId, whatsapp,
-            "🤖 Atendimento encerrado. Quando quiser, envie uma nova mensagem para comecar novamente. \uD83D\uDE09", "ENVIADA");
+            "🤖💬Atendimento encerrado. Quando quiser, envie uma nova mensagem para comecar novamente. \uD83D\uDE09", "ENVIADA");
     }
 
     public void enviarConfirmacaoAgendamento(WhatsAppCanal canal, String clienteId, String whatsapp,
@@ -120,7 +120,7 @@ public class WhatsAppRespostaAutomaticaService {
                                              String nomeProcedimento, String nomeProfissional) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         String mensagem = String.format("""
-            🤖 Agendamento confirmado! ✅
+            🤖💬 Agendamento confirmado! ✅
 
             📍 Estabelecimento: %s
             🩺 Procedimento: %s
@@ -145,7 +145,7 @@ public class WhatsAppRespostaAutomaticaService {
                                                String nomeProcedimento, String nomeProfissional) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         String mensagem = String.format("""
-            🤖 Reagendamento confirmado! ✅
+            🤖💬 Reagendamento confirmado! ✅
             
             📍 Estabelecimento: %s
             🩺 Procedimento: %s
@@ -170,7 +170,7 @@ public class WhatsAppRespostaAutomaticaService {
                                               String nomeProcedimento, String nomeProfissional) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         String mensagem = String.format("""
-            🤖 Cancelamento confirmado! ✅
+            🤖💬 Cancelamento confirmado! ✅
             
             📍 Estabelecimento: %s
             🩺 Procedimento: %s

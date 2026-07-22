@@ -36,6 +36,16 @@ public class TravaAgendaController {
 
     @PutMapping("/{id}")
     public ResponseEntity<TravaAgenda> update(@PathVariable String id, @Valid @RequestBody TravaAgendaRequest request) {
+        /**
+         * Exemplo:
+         * {
+         *   "estabelecimentoId": "123",
+         *   "data": "2026-07-25",
+         *   "horaInicio": "13:00:00",
+         *   "horaFim": "17:30:00",
+         *   "motivo": "Treinamento interno"
+         * }
+         */
         return ResponseEntity.ok(service.update(id, request));
     }
 
